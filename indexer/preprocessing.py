@@ -13,7 +13,7 @@ stemmer = PorterStemmer()
 lemmatizer = WordNetLemmatizer()
 stop_words = set(stopwords.words("english"))
 
-with open(r"C:\Documents\code\IR2\datasets\Assignment-data\bool_docs.json", "r") as f:
+with open(r"C:\Documents\code\IR2\Assignment-data\bool_docs.json", "r") as f:
     data = json.load(f)
 
 i = 1
