@@ -3,3 +3,4 @@ IR Project Folder
 To run code:
 1)pip install -r requirements.txt
 2) python main.py 
+3) to query, just replace the api key, with your openAi API key and run python query.py, with your query inside userQuery
