@@ -21,6 +21,8 @@ with open("output.json", "r") as f, open("index_table.json", "w") as out_f:
 
             if i + 1 >= chunk_size:  # Stop after processing `chunk_size` elements
                 break
-        json.dump({key: list(value) for key, value in index_table.items()}, out_f)
+        sorted_index_table = {key: list(value) for key, value in sorted(index_table.items())}
+        json.dump(sorted_index_table, out_f)   
+    
     out_f.write("]")
     # Convert to JSON-friendly format **only when dumping JSON**
