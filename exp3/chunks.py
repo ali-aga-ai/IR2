@@ -28,7 +28,7 @@ def parse(k):
 
                 first_chunk = False
                 chunk_id += 1  # Increment chunk number
-                if(chunk_id == 2):break
+                if(chunk_id == 10):break
 
             out_f.write("]")  # Close JSON array
 

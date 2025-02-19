@@ -4,7 +4,7 @@ from sortedcontainers import SortedSet
 
 chunk_size = 5
 
-with open("output.json", "r") as f, open("index_table.json", "w") as out_f: 
+with open("output.json", "r") as f, open("index_table0.json", "w") as out_f: 
 
     for i, item in enumerate(ijson.items(f, "item")):
         index_table = {}
