@@ -35,5 +35,5 @@ for obj in data:
 for key,value in inverted_index.items(): # this is done because sorted set is a python object and cannot be convertedd to a "value" in json (aka non-serializable)
     inverted_index[key] = list(value)
 
-with open("output.txt","w") as f:
-    f.write(json.dumps(inverted_index))
+with open("output.json","w") as f:
+    f.write(json.dumps(inverted_index, indent =1))

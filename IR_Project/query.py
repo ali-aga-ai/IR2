@@ -34,8 +34,7 @@ def query_faiss(query_text, top_k=4):
     
     return valid_results
 
-userQuery = "what is the format for phd proposal"
-
+userQuery = "checklist for preparing draft thesis?"
 results = query_faiss(userQuery)
 print("\nResults:")
 for text, score in results:

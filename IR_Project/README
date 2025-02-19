@@ -4,3 +4,9 @@ To run code:
 1)pip install -r requirements.txt
 2) python main.py 
 3) to query, just replace the api key, with your openAi API key and run python query.py, with your query inside userQuery
+
+
+TODO for project
+- do lemmization before converting to a vector
+- need to change the chunk size more thoughtfully and understandign main.py
+- add the pdf which hada picture (not text)
