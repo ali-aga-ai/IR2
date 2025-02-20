@@ -2,7 +2,7 @@ import ijson
 import json
 from sortedcontainers import SortedSet
 
-chunk_size = 5
+chunk_size = 5000
 
 with open("output.json", "r") as f, open("index_table0.json", "w") as out_f: 
 
@@ -11,9 +11,11 @@ with open("output.json", "r") as f, open("index_table0.json", "w") as out_f:
         if i == 0 : out_f.write("[")
         else: out_f.write(",")
         
-        for k in range(chunk_size):
+        for k in range(len(item)):  # Safely iterate only over available items in the chunk
 
             for word in item[k]["Abstract"].split():
+                word = word.replace('\\', '').replace('"', '').strip()  # Remove backslashes and double quotes
+                
                 if word not in index_table:
                     index_table[word] = SortedSet([int(item[k]["Index"])])  # Convert to int
                 else:
