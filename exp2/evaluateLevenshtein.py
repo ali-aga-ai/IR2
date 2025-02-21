@@ -1,6 +1,6 @@
 import json
 import time
-from levenshteinLoop import load_dictionary, load_documents, build_positional_index, edit_distance_correction
+from Levenshtein_Distance import load_dictionary, load_documents, build_positional_index, edit_distance_correction
 
 K = 1  # Maximum edit distance
 
