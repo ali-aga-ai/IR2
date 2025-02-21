@@ -19,7 +19,6 @@ class ProcessingState:
         try:
             with open(self.state_file, 'r') as f:
                 state = json.load(f)
-                # Ensure all required keys exist
                 default_state = {
                     'all_chunks': [],
                     'processed_pdfs': [],
@@ -42,14 +41,13 @@ class ProcessingState:
             json.dump(self.state, f)
     
     def reset_embeddings(self):
-        """Reset embeddings while keeping other state intact"""
         self.state['completed_embeddings'] = []
         self.state['last_processed_chunk'] = 0
         self.save_state()
     
     def update_progress(self, chunk_index: int, new_embeddings: List):
         self.state['last_processed_chunk'] = chunk_index
-        self.state['completed_embeddings'] = new_embeddings  # Store only current embeddings
+        self.state['completed_embeddings'] = new_embeddings
         self.save_state()
     
     def add_processed_pdf(self, pdf_path: str, chunks: List[str]):
@@ -59,39 +57,26 @@ class ProcessingState:
             self.save_state()
 
 def extract_content_from_pdf(pdf_path: str) -> str:
-    """Extract text and tables from PDF with improved error handling"""
     full_content = []
-    
     try:
         with pdfplumber.open(pdf_path) as pdf:
-            for page_num, page in enumerate(pdf.pages, 1):
-                try:
-                    # Extract text with error handling
-                    text = page.extract_text() or ""
-                    if text:
-                        full_content.append(text)
-                    
-                    # Extract tables with error handling
-                    tables = page.extract_tables()
-                    for table in tables:
-                        if table:  # Check if table is not empty
-                            df = pd.DataFrame(table).fillna('').replace(r'^\s*$', '', regex=True)
-                            full_content.append(f"\nTable Content:\n{df.to_string(index=False, header=False)}\n")
-                except Exception as e:
-                    print(f"Warning: Error processing page {page_num} in {pdf_path}: {str(e)}")
-                    continue
-                
+            for page in pdf.pages:
+                text = page.extract_text() or ""
+                if text:
+                    full_content.append(text)
+                tables = page.extract_tables()
+                for table in tables:
+                    if table:
+                        df = pd.DataFrame(table).fillna('').replace(r'^\s*$', '', regex=True)
+                        full_content.append(f"\nTable Content:\n{df.to_string(index=False, header=False)}\n")
     except Exception as e:
-        print(f"Error: Failed to process PDF {pdf_path}: {str(e)}")
-        return ""  # Return empty string on complete failure
-    
+        print(f"Error processing PDF {pdf_path}: {e}")
+        return ""
     return "\n".join(full_content)
 
 def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> List[str]:
-    """Split text into chunks with empty text handling"""
     if not text.strip():
         return []
-        
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -108,13 +93,12 @@ def get_embeddings_with_enhanced_retry(
     initial_retry_delay: int = 20,
     batch_size: int = 50
 ) -> List[List[float]]:
-    """Get embeddings with improved state management"""
     if not api_key:
         raise ValueError("OpenAI API key is required")
     
     client = OpenAI(api_key=api_key)
-    embeddings = []  # Start fresh
-    start_idx = 0  # Always start from beginning
+    embeddings = []
+    start_idx = 0
     
     print(f"Processing {len(chunks)} chunks")
     
@@ -127,8 +111,6 @@ def get_embeddings_with_enhanced_retry(
                 response = client.embeddings.create(input=batch, model=model)
                 batch_embeddings = [item.embedding for item in response.data]
                 embeddings.extend(batch_embeddings)
-                
-                # Update state with current progress
                 state.update_progress(i + len(batch), embeddings)
                 print(f"Processed chunks {i}-{i+len(batch)-1}")
                 time.sleep(1)
@@ -144,37 +126,12 @@ def get_embeddings_with_enhanced_retry(
     
     return embeddings
 
-
-
-def verify_faiss_storage(index_path: str = "vector_index.faiss", 
-                        metadata_path: str = "chunks_metadata.pkl") -> Tuple[int, int]:
-    """
-    Verify the integrity of stored FAISS index and metadata.
-    
-    This function performs several important checks:
-    1. Verifies that both index and metadata files exist
-    2. Ensures vector count matches chunk count
-    3. Validates embedding dimensions
-    4. Checks metadata structure
-    
-    Args:
-        index_path: Path to the FAISS index file
-        metadata_path: Path to the metadata pickle file
-    
-    Returns:
-        Tuple containing (number of vectors, number of chunks)
-    
-    Raises:
-        FileNotFoundError: If either file is missing
-        ValueError: If there's a mismatch or validation fails
-    """
-    # Check if files exist
+def verify_faiss_storage(index_path: str = "vector_index.faiss", metadata_path: str = "chunks_metadata.pkl") -> Tuple[int, int]:
     if not os.path.exists(index_path):
         raise FileNotFoundError(f"FAISS index file not found: {index_path}")
     if not os.path.exists(metadata_path):
         raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
     
-    # Load FAISS index and metadata
     try:
         index = faiss.read_index(index_path)
     except Exception as e:
@@ -185,31 +142,21 @@ def verify_faiss_storage(index_path: str = "vector_index.faiss",
     except Exception as e:
         raise ValueError(f"Failed to load metadata: {str(e)}")
     
-    # Verify index has vectors
     if index.ntotal == 0:
         raise ValueError("FAISS index is empty")
     
-    # Verify metadata structure
     if not isinstance(metadata, pd.DataFrame):
         raise ValueError("Metadata must be a pandas DataFrame")
     if 'chunk_text' not in metadata.columns:
         raise ValueError("Metadata missing 'chunk_text' column")
     
-    # Verify counts match
     if index.ntotal != len(metadata):
-        raise ValueError(
-            f"Count mismatch: FAISS index has {index.ntotal} vectors, "
-            f"but metadata has {len(metadata)} chunks"
-        )
+        raise ValueError(f"Count mismatch: FAISS index has {index.ntotal} vectors, but metadata has {len(metadata)} chunks")
     
-    # Verify embedding dimensions
     try:
-        sample_embedding = index.reconstruct(0)  # Get first vector
-        if len(sample_embedding) != 1536:  # OpenAI ada-002 dimension
-            raise ValueError(
-                f"Unexpected embedding dimension: {len(sample_embedding)}. "
-                f"Expected 1536 for ada-002 model."
-            )
+        sample_embedding = index.reconstruct(0)
+        if len(sample_embedding) != 1536:
+            raise ValueError(f"Unexpected embedding dimension: {len(sample_embedding)}. Expected 1536 for ada-002 model.")
     except Exception as e:
         raise ValueError(f"Failed to verify embedding dimensions: {str(e)}")
     
@@ -220,79 +167,46 @@ def verify_faiss_storage(index_path: str = "vector_index.faiss",
     
     return index.ntotal, len(metadata)
 
-def store_in_faiss(embeddings: List[List[float]], chunks: List[str], 
-                   index_path: str = "vector_index.faiss", 
-                   metadata_path: str = "chunks_metadata.pkl") -> None:
-    """
-    Store embeddings and chunks in FAISS index and metadata file.
-    
-    This function ensures data consistency by:
-    1. Validating input data
-    2. Creating a new FAISS index
-    3. Storing chunks metadata
-    4. Verifying the stored data
-    
-    Args:
-        embeddings: List of embedding vectors
-        chunks: List of text chunks
-        index_path: Path to save FAISS index
-        metadata_path: Path to save metadata
-    """
-    # Input validation
+def store_in_faiss(embeddings: List[List[float]], chunks: List[str], index_path: str = "vector_index.faiss", metadata_path: str = "chunks_metadata.pkl") -> None:
     if not embeddings or not chunks:
         raise ValueError("No embeddings or chunks to store")
     
     if len(embeddings) != len(chunks):
-        raise ValueError(
-            f"Count mismatch: {len(embeddings)} embeddings vs {len(chunks)} chunks"
-        )
+        raise ValueError(f"Count mismatch: {len(embeddings)} embeddings vs {len(chunks)} chunks")
     
-    # Convert embeddings to numpy array
     embeddings_array = np.array(embeddings).astype('float32')
     
-    # Validate embedding dimensions
-    if embeddings_array.shape[1] != 1536:  # OpenAI ada-002 dimension
-        raise ValueError(
-            f"Unexpected embedding dimension: {embeddings_array.shape[1]}"
-        )
+    if embeddings_array.shape[1] != 1536:
+        raise ValueError(f"Unexpected embedding dimension: {embeddings_array.shape[1]}")
     
-    # Create and save FAISS index
     index = faiss.IndexFlatL2(embeddings_array.shape[1])
     index.add(embeddings_array)
     faiss.write_index(index, index_path)
     
-    # Save metadata
     metadata = pd.DataFrame({
         'chunk_text': chunks,
-        'embedding_index': range(len(chunks))  # Add index for reference
+        'embedding_index': range(len(chunks))
     })
     metadata.to_pickle(metadata_path)
     
-    # Verify storage
     try:
         num_vectors, num_chunks = verify_faiss_storage(index_path, metadata_path)
         print(f"Successfully stored {num_vectors} vectors with metadata")
     except Exception as e:
-        # Clean up on verification failure
         if os.path.exists(index_path):
             os.remove(index_path)
         if os.path.exists(metadata_path):
             os.remove(metadata_path)
         raise ValueError(f"Storage verification failed: {str(e)}")
 
-# [Rest of the code remains the same]
-
 def test_pipeline(pdf_folder: str, api_key: str):
-    """Main pipeline with improved error handling"""
     state = ProcessingState()
     
     if not os.path.exists(pdf_folder):
         raise FileNotFoundError(f"PDF folder not found: {pdf_folder}")
     
-    # Clear previous embeddings to avoid accumulation
     state.reset_embeddings()
     
-    # Process new PDFs
     new_pdfs = [
         os.path.join(pdf_folder, f) 
         for f in os.listdir(pdf_folder) 
@@ -318,7 +232,6 @@ def test_pipeline(pdf_folder: str, api_key: str):
             print(f"Error processing {pdf}: {str(e)}")
             continue
     
-    # Get all chunks and process
     all_chunks = state.state['all_chunks']
     if not all_chunks:
         print("No chunks to process. Check PDF content and extraction.")
@@ -330,11 +243,9 @@ def test_pipeline(pdf_folder: str, api_key: str):
         embeddings = get_embeddings_with_enhanced_retry(all_chunks, state, api_key=api_key)
         store_in_faiss(embeddings, all_chunks)
         
-        # Verify storage
         num_vectors, num_chunks = verify_faiss_storage()
         print(f"\nSuccess: {num_vectors} vectors stored for {num_chunks} chunks")
         
-        # Clean up state file only on complete success
         if os.path.exists(state.state_file):
             os.remove(state.state_file)
             
@@ -344,7 +255,7 @@ def test_pipeline(pdf_folder: str, api_key: str):
 
 if __name__ == "__main__":
     pdf_folder = "./pdfs"
-    openai_api_key = "your-api-key"  # Replace with actual key
+    openai_api_key = "Add API key here"  # Replace with actual key
     
     try:
         test_pipeline(pdf_folder, openai_api_key)
