@@ -10,3 +10,7 @@ TODO for project
 - do lemmization before converting to a vector
 - need to change the chunk size more thoughtfully and understandign main.py
 - add the pdf which hada picture (not text)
+
+Analysis of Corpus
+Running corpusAnalysis.py will provide more stats into the corpus like doccument length distribution, cosine similarity bewtween documents and most frequent terms in the corpus.
+booleanIndexTable.py will create a inverted index of the corpus and also return the total vocabulary size of the document after applying stopword removal and lemmatization.
