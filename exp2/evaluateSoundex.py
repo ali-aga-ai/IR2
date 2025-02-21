@@ -1,6 +1,6 @@
 import json
 import time
-from soundexLoop import load_dictionary, load_documents, build_positional_index, soundex_correction
+from Soundex import load_dictionary, load_documents, build_positional_index, soundex_correction
 
 TOP_N = 3  # Top candidate corrections per word
 
