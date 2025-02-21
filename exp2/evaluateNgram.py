@@ -1,6 +1,6 @@
 import json
 import time
-from ngramLoop import load_dictionary, load_documents, build_positional_index, ngram_correction
+from Ngram import load_dictionary, load_documents, build_positional_index, ngram_correction
 
 N = 3  # N-gram size
 
