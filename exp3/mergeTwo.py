@@ -1,7 +1,81 @@
 import ijson
 import json
-import os
 import math
+import time
+from memory_profiler import memory_usage
+from sortedcontainers import SortedSet
+
+chunk_size = 2000
+
+def createChunks(k):
+    chunk_id = 0  # Track chunk number
+    i = 0
+    with open(r"C:\Documents\code\IR2\Assignment-data\bsbi_docs.json", "r") as f:  
+        parser = ijson.items(f, "item") 
+
+        with open("output.json", "w") as out_f:  
+            out_f.write("[")  
+
+            first_chunk = True
+            while True:
+                data = []
+                for _ in range(k):  
+                    try:
+                        data.append(next(parser)) 
+                    except StopIteration:
+                        break  
+
+                if not data:
+                    break  # Stop parsing
+
+                if not first_chunk:
+                    out_f.write(",")  # Ensure correct JSON formatting
+                json.dump(data, out_f)
+
+                first_chunk = False
+                chunk_id += 1  # Increment chunk number
+
+            out_f.write("]")  # Close JSON array
+            return chunk_id
+
+
+def createIndexTable():
+    with open("output.json", "r") as f, open("index_table0.json", "w") as out_f: 
+
+        for i, item in enumerate(ijson.items(f, "item")):
+            index_table = {}
+            if i == 0 : out_f.write("[")
+            else: out_f.write(",")
+            
+            for k in range(len(item)): # len(item) instead of chunk size ensures no out of bounds
+
+                for word in item[k]["Abstract"].split():
+                    word = word.replace('\\', '').replace('"', '').strip()  # Remove backslashes and double quotes
+                    
+                    if word not in index_table:
+                        index_table[word] = SortedSet([int(item[k]["Index"])])  # Convert to int
+                    else:
+                        index_table[word].add(int(item[k]["Index"]))  # Ensure int before adding
+
+                if i + 1 >= chunk_size:  # Stop after processing `chunk_size` elements
+                    break
+            sorted_index_table = {key: list(value) for key, value in sorted(index_table.items())}
+            json.dump(sorted_index_table, out_f)   
+        
+        out_f.write("]")
+        # Convert to JSON-friendly format **only when dumping JSON**
+
+start = time.time()
+mem_start = memory_usage()[0]
+number_of_chunks = createChunks(chunk_size)
+createIndexTable()
+end = time.time()
+mem_end = memory_usage()[0]
+
+print(f"For chunk size = {chunk_size}")
+print(f"Number of chunks created= {number_of_chunks}")
+print(f"Time to index = {end - start} seconds")
+print(f"Total memory used: {mem_end - mem_start:.2f} MB.")
 
 def bringKObjects(k,index, offset,p): #index is basically konse waale se u wanna bring
     with open(f"index_table{p-1}.json", "r", encoding ="utf-8") as f: 
@@ -20,6 +94,7 @@ def bringKObjects(k,index, offset,p): #index is basically konse waale se u wanna
             
             return result
             
+
 def mergeLists(l1,l2):
     i=0
     j=0
@@ -42,6 +117,7 @@ def mergeLists(l1,l2):
 
     return result  # Return the merged sorted list
 
+
 def writeToDisk(l, beginning, p):
     with open(f"index_table{p}.json", "a",encoding ="utf-8") as f:
         for idx, item in enumerate(l):
@@ -49,6 +125,7 @@ def writeToDisk(l, beginning, p):
             if beginning != 0 or idx > 0:
                 f.write(",")  # Add a comma for valid JSON structure
             f.write(f'"{key}": {json.dumps(value)}')  # Write key-value directly
+
 
 def merge(index1, index2, k, p):
     offset1 = 0
@@ -113,13 +190,10 @@ def merge(index1, index2, k, p):
     with open(f"index_table{p}.json", "a",encoding ="utf-8") as f:
         f.write("}")
         
-# # Example usage:
-# result = merge(0, 1, 5)
-# print(result)
 
 def dumpObject(index,p):
     with open(f"index_table{p-1}.json", "r",encoding ="utf-8") as f:
-        items = list(ijson.items(f, "item"))  # Convert to a list
+        items = list(ijson.items(f, "item"))
 
     if index >= len(items):  #  invalid index
         return  
@@ -129,9 +203,8 @@ def dumpObject(index,p):
 
 
 
-
 def mergeAll(k, p):
-    # Clear the file first
+    
     with open(f"index_table{p}.json", "w",encoding ="utf-8") as op:
         op.write("[")
     
@@ -141,32 +214,38 @@ def mergeAll(k, p):
     lastIndex = len(items) - 1
     idx = 0
     
-    # Process pairs
     while idx < lastIndex:
         merge(idx, idx + 1, k,p)
         idx += 2
-        # Don't write comma after last pair
         if idx < lastIndex or (len(items) % 2 != 0):
             with open(f"index_table{p}.json", "a",encoding ="utf-8") as op:
                 op.write(",")
-    
-    # Handle last odd item if exists
     if len(items) % 2 != 0:
         print("hello")
         with open(f"index_table{p}.json", "a",encoding ="utf-8") as f:
             json.dump(items[lastIndex], f)
     
-    # Close the array
     with open(f"index_table{p}.json", "a",encoding ="utf-8") as op:
         op.write("]")
 
+   
+
+
 def final(number_of_chunks):
+    start_time = time.time()
+    mem_start = memory_usage()[0]
+
     result = math.ceil(math.log2(number_of_chunks))
     for i in range(result + 1):
         mergeAll(5000, i + 1)
-        file_path = f"index_table{i-1}.json"
-        if i-1 > 0:
-            os.remove(file_path)
+# file_path = f"index_table{i-1}.json"
+        # if i-1 > 0:
+        #     os.remove(file_path)
+    end_time = time.time()
+    mem_end = memory_usage()[0]
 
+    print(f"Total merging completed in {end_time - start_time:.2f} seconds.")
+    print(f"Total memory used: {mem_end - mem_start:.2f} MB.")
+        
 
-final(57)
+final(number_of_chunks)

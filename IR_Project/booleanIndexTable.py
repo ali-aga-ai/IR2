@@ -7,7 +7,7 @@ import pdfplumber
 from sortedcontainers import SortedSet
 import os
 
-# Document ID table
+# hash table for docid
 doc_id_table = {
     "BITS-Pilani-International-Travel-Award_Guidelines-1.pdf": 1,
     "CheckList_PhD-Thesis-submission.pdf": 2,
@@ -19,12 +19,8 @@ doc_id_table = {
 
 inverted_index = {}
 
-# Download NLTK resources
 nltk.download("wordnet")
 nltk.download("stopwords")
-
-# Initialize NLP tools
-stemmer = PorterStemmer()
 lemmatizer = WordNetLemmatizer()
 stop_words = set(stopwords.words("english"))
 
@@ -69,9 +65,9 @@ for pdf_file in os.listdir(pdf_dir):
     data = extract_content_from_pdf(pdf_path)
     
     processed_words = [
-        lemmatizer.lemmatize(stemmer.stem(word), pos="v")  
+        lemmatizer.lemmatize(word, pos="v")  
         for word in data.lower().split()
-        if word.isalpha() and word not in stop_words  # Ensure words are alphabetic and not stop words
+        if word.isalpha() and word not in stop_words  
     ]
     
     for word in processed_words:
@@ -80,16 +76,14 @@ for pdf_file in os.listdir(pdf_dir):
         else:
             inverted_index[word].add(doc_id_table[pdf_file])
 
-# Convert SortedSet to list for JSON serialization
+#sorted set is not "json serializable"
 inverted_index = {key: list(value) for key, value in inverted_index.items()}
 
-# Write to JSON file
 with open("output.json", "w") as f:
     json.dump(inverted_index, f, indent=1)
 
-print("Inverted index successfully created!")
 with open("output.json", "r") as f:
     inverted_index = json.load(f)
 
 vocab_size = len(inverted_index)
-print(f"Vocabulary Size: {vocab_size}")
+print(f"vocab size: {vocab_size}")
