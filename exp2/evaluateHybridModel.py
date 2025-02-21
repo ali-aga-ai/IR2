@@ -1,6 +1,6 @@
 import json
 import time
-from HybridModel import (
+from hybridModel import (
     load_dictionary,
     load_documents,
     build_soundex_index,
@@ -11,16 +11,12 @@ from HybridModel import (
 
 TOP_N = 3  # Top N corrections per word
 
-
 def evaluate_hybrid_spell_checker(test_file, dict_file, docs_file):
-    """
-    Evaluates the hybrid spelling correction model using Soundex + N-Gram + Levenshtein.
-    Measures accuracy, average time per query, and displays top suggestions.
-    """
-    # Load data
+    # Load test queries
     with open(test_file, "r", encoding="utf-8") as f:
         test_queries = json.load(f)
 
+    # Load dictionary and documents
     dictionary = load_dictionary(dict_file)
     docs = load_documents(docs_file)
     soundex_dict = build_soundex_index(dictionary)
@@ -31,7 +27,7 @@ def evaluate_hybrid_spell_checker(test_file, dict_file, docs_file):
     correct_count = 0
     total_time = 0.0
 
-    print("\n--- Evaluation Results for Hybrid Spell Checker (Soundex + N-Gram + Levenshtein) ---\n")
+    print("\n--- Hybrid Spell Checker Evaluation Results ---\n")
     for i, test_case in enumerate(test_queries, 1):
         query = test_case["query"]
         expected = test_case["corrected"]
@@ -41,7 +37,7 @@ def evaluate_hybrid_spell_checker(test_file, dict_file, docs_file):
         elapsed = time.time() - start_time
         total_time += elapsed
 
-        # Check if expected correction is in suggestions
+        # Check if the expected correction is in the suggestions
         if expected in corrections:
             correct_count += 1
             print(f"{i}. ✅ Correct: '{query}' → '{expected}' ({elapsed:.4f}s)")
@@ -56,7 +52,6 @@ def evaluate_hybrid_spell_checker(test_file, dict_file, docs_file):
     print(f"Correct Predictions: {correct_count}")
     print(f"Accuracy: {accuracy:.2f}%")
     print(f"Average Time per Query: {avg_time:.4f} seconds\n")
-
 
 if __name__ == "__main__":
     evaluate_hybrid_spell_checker("spell_queries.json", "dictionary2.txt", "bool_docs.json")
