@@ -66,6 +66,16 @@ def jaccard_similarity(set1, set2):
     union = len(set1 | set2)
     return intersection / union if union != 0 else 0
 
+def build_dictionary_ngrams(dictionary, n=2):
+    """
+    Precompute n-grams for all words in the dictionary.
+    Returns a dictionary mapping each word to its set of n-grams.
+    """
+    dict_ngrams = {}
+    for word in dictionary:
+        dict_ngrams[word] = get_ngrams(word, n)
+    return dict_ngrams
+
 # ------------------ Levenshtein Distance ------------------
 
 def levenshtein_distance(s, t):
@@ -84,53 +94,63 @@ def levenshtein_distance(s, t):
 
 # ------------------ Combined Spelling Correction ------------------
 
-def correct_word(word, dictionary, soundex_dict, max_distance=2, n=2):
+def correct_word(word, dictionary, soundex_dict, dictionary_ngrams, max_distance=2, n=2):
     """
     Corrects a single word using Soundex, N-Gram, and Levenshtein Distance.
-    First, it finds all candidates sharing the same Soundex code.
-    Then, it ranks these candidates by their n-gram Jaccard similarity with the input word.
-    Finally, it refines the best matches using Levenshtein Distance and returns up to 3 candidates.
+    First, it finds candidates sharing the same Soundex code.
+    Then, it ranks these candidates using n-gram Jaccard similarity,
+    retrieving candidate n-grams from the precomputed dictionary_ngrams.
+    Finally, it refines the best matches using Levenshtein Distance.
     """
     soundex_code = soundex(word)
     soundex_candidates = soundex_dict.get(soundex_code, set())
 
     best_similarity = 0
     best_candidates = set()
-
+    query_ngrams = get_ngrams(word, n)
+    
     for cand in soundex_candidates:
-        ngram_sim = jaccard_similarity(get_ngrams(word, n), get_ngrams(cand, n))
+        cand_ngrams = dictionary_ngrams[cand]  # Use precomputed n-grams
+        ngram_sim = jaccard_similarity(query_ngrams, cand_ngrams)
         if ngram_sim > best_similarity:
             best_similarity = ngram_sim
             best_candidates = {cand}
         elif ngram_sim == best_similarity:
             best_candidates.add(cand)
 
-    # Refine using Levenshtein Distance
     final_candidates = sorted(best_candidates, key=lambda x: levenshtein_distance(word, x))[:3]
     return final_candidates if final_candidates else [word]
 
-def correct_query(query, dictionary, soundex_dict, max_distance=2, n=2):
+def correct_query(query, dictionary, soundex_dict, dictionary_ngrams, max_distance=2, n=2):
     """
     Corrects each word in a query and returns top suggestions.
-    The final query suggestions are generated using the Cartesian product of candidate corrections per word.
-    The output is limited to the top 10 corrected queries.
+    Generates final query suggestions using the Cartesian product of candidate corrections.
+    Limits output to the top 10 corrected queries.
     """
     words = query.split()
-    candidate_lists = [correct_word(word, dictionary, soundex_dict, max_distance, n) for word in words]
-    return [" ".join(c) for c in product(*candidate_lists)][:10]  # Limit to top 10 suggestions
+    candidate_lists = [correct_word(word, dictionary, soundex_dict, dictionary_ngrams, max_distance, n) for word in words]
+    return [" ".join(c) for c in product(*candidate_lists)][:10]
 
 # ------------------ Positional Index & Document Retrieval ------------------
 
 def build_positional_index(docs):
-    """Creates a positional index for fast phrase search."""
-    index = defaultdict(lambda: defaultdict(list))
+    """
+    Build a positional index for each field (Title, Author, Bibliographic Source, Abstract).
+    Stores a mapping from word → { doc_id → set(positions) }.
+    """
+    positional_index = { field: {} for field in ["Title", "Author", "Bibliographic Source", "Abstract"] }
     for doc in docs:
-        doc_id = doc['Index']
-        content = " ".join([doc[key] for key in ["Title", "Author", "Bibliographic Source", "Abstract"] if key in doc]).lower()
-        words = re.findall(r'\w+', content)
-        for pos, word in enumerate(words):
-            index[word][doc_id].append(pos)
-    return index
+        doc_id = doc["Index"]
+        for field in ["Title", "Author", "Bibliographic Source", "Abstract"]:
+            if field in doc:
+                words = re.findall(r'\b[a-zA-Z]+\b', doc[field].lower())
+                for pos, word in enumerate(words):
+                    if word not in positional_index[field]:
+                        positional_index[field][word] = {}
+                    if doc_id not in positional_index[field][word]:
+                        positional_index[field][word][doc_id] = set()
+                    positional_index[field][word][doc_id].add(pos)
+    return positional_index
 
 def search_documents(query, positional_index):
     """
@@ -141,12 +161,10 @@ def search_documents(query, positional_index):
     if not all(word in positional_index for word in words):
         return []
 
-    # Find common documents containing all words
     common_docs = set(positional_index[words[0]].keys())
     for word in words[1:]:
         common_docs &= set(positional_index[word].keys())
 
-    # Ensure words appear in order (phrase search)
     matched_docs = []
     for doc in common_docs:
         positions = [positional_index[word][doc] for word in words]
@@ -177,6 +195,7 @@ def main():
 
     # Precompute indices (runs only once)
     soundex_dict = build_soundex_index(dictionary)
+    dictionary_ngrams = build_dictionary_ngrams(dictionary, n=2)  # Precompute n-grams for all dictionary words
     positional_index = build_positional_index(docs)
 
     print("Hybrid Spelling Correction (Soundex + N-Gram + Levenshtein) with Document Retrieval")
@@ -187,7 +206,7 @@ def main():
         if query == "xxx":
             break
         start_time = time.time()
-        corrected_queries = correct_query(query, dictionary, soundex_dict)
+        corrected_queries = correct_query(query, dictionary, soundex_dict, dictionary_ngrams)
         show_results(corrected_queries, docs, positional_index)
         elapsed = time.time() - start_time
         print(f"Time taken for query: {elapsed:.4f} seconds\n")
