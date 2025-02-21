@@ -1,6 +1,6 @@
 import json
 import time
-from combinedLoop import (
+from HybridModel import (
     load_dictionary,
     load_documents,
     build_soundex_index,
