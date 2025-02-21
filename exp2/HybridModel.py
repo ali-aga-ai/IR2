@@ -4,6 +4,10 @@ import time
 from itertools import product
 from collections import defaultdict
 
+# ------------------ Tunable Parameters ------------------
+N_GRAM_SIZE = 3  # Change this to adjust the n-gram size globally
+MAX_EDIT_DISTANCE = 1  # Change this to adjust the max edit distance globally
+
 # ------------------ Utility Functions ------------------
 
 def load_dictionary(dict_file):
@@ -27,21 +31,19 @@ def soundex(word):
     }
     first_letter = word[0].upper()
     
-    # Replace letters with numbers
     encoded = first_letter
     prev_digit = None
     for char in word[1:]:
         for key, value in mappings.items():
             if char in key:
                 digit = value
-                if digit != prev_digit:  # Avoid consecutive duplicates
+                if digit != prev_digit:
                     encoded += digit
                 prev_digit = digit
                 break
         else:
-            prev_digit = None  # Reset for vowels & non-mapped chars
+            prev_digit = None  
     
-    # Pad or truncate to length 4
     encoded = (encoded + "000")[:4]
     return encoded
 
@@ -55,7 +57,7 @@ def build_soundex_index(dictionary):
 
 # ------------------ N-Gram Similarity ------------------
 
-def get_ngrams(word, n=2):
+def get_ngrams(word, n=N_GRAM_SIZE):
     """Return a set of character n-grams for a given word."""
     if len(word) < n:
         return {word}
@@ -66,7 +68,7 @@ def jaccard_similarity(set1, set2):
     union = len(set1 | set2)
     return intersection / union if union != 0 else 0
 
-def build_dictionary_ngrams(dictionary, n=2):
+def build_dictionary_ngrams(dictionary, n=N_GRAM_SIZE):
     """
     Precompute n-grams for all words in the dictionary.
     Returns a dictionary mapping each word to its set of n-grams.
@@ -94,23 +96,19 @@ def levenshtein_distance(s, t):
 
 # ------------------ Combined Spelling Correction ------------------
 
-def correct_word(word, dictionary, soundex_dict, dictionary_ngrams, max_distance=2, n=2):
+def correct_word(word, dictionary, soundex_dict, dictionary_ngrams):
     """
     Corrects a single word using Soundex, N-Gram, and Levenshtein Distance.
-    First, it finds candidates sharing the same Soundex code.
-    Then, it ranks these candidates using n-gram Jaccard similarity,
-    retrieving candidate n-grams from the precomputed dictionary_ngrams.
-    Finally, it refines the best matches using Levenshtein Distance.
     """
     soundex_code = soundex(word)
     soundex_candidates = soundex_dict.get(soundex_code, set())
 
     best_similarity = 0
     best_candidates = set()
-    query_ngrams = get_ngrams(word, n)
+    query_ngrams = get_ngrams(word)
     
     for cand in soundex_candidates:
-        cand_ngrams = dictionary_ngrams[cand]  # Use precomputed n-grams
+        cand_ngrams = dictionary_ngrams[cand]  
         ngram_sim = jaccard_similarity(query_ngrams, cand_ngrams)
         if ngram_sim > best_similarity:
             best_similarity = ngram_sim
@@ -121,27 +119,24 @@ def correct_word(word, dictionary, soundex_dict, dictionary_ngrams, max_distance
     final_candidates = sorted(best_candidates, key=lambda x: levenshtein_distance(word, x))[:3]
     return final_candidates if final_candidates else [word]
 
-def correct_query(query, dictionary, soundex_dict, dictionary_ngrams, max_distance=2, n=2):
+def correct_query(query, dictionary, soundex_dict, dictionary_ngrams):
     """
     Corrects each word in a query and returns top suggestions.
-    Generates final query suggestions using the Cartesian product of candidate corrections.
-    Limits output to the top 10 corrected queries.
     """
     words = query.split()
-    candidate_lists = [correct_word(word, dictionary, soundex_dict, dictionary_ngrams, max_distance, n) for word in words]
+    candidate_lists = [correct_word(word, dictionary, soundex_dict, dictionary_ngrams) for word in words]
     return [" ".join(c) for c in product(*candidate_lists)][:10]
 
 # ------------------ Positional Index & Document Retrieval ------------------
 
 def build_positional_index(docs):
     """
-    Build a positional index for each field (Title, Author, Bibliographic Source, Abstract).
-    Stores a mapping from word → { doc_id → set(positions) }.
+    Build a positional index for document fields.
     """
     positional_index = { field: {} for field in ["Title", "Author", "Bibliographic Source", "Abstract"] }
     for doc in docs:
         doc_id = doc["Index"]
-        for field in ["Title", "Author", "Bibliographic Source", "Abstract"]:
+        for field in positional_index:
             if field in doc:
                 words = re.findall(r'\b[a-zA-Z]+\b', doc[field].lower())
                 for pos, word in enumerate(words):
@@ -155,51 +150,21 @@ def build_positional_index(docs):
 def search_documents(query, positional_index):
     """
     Finds documents containing the phrase using the positional index.
-    This function finds documents that contain all the words of the query.
     """
     words = query.lower().split()
     if not all(word in positional_index for word in words):
         return []
-
-    common_docs = set(positional_index[words[0]].keys())
-    for word in words[1:]:
-        common_docs &= set(positional_index[word].keys())
-
-    matched_docs = []
-    for doc in common_docs:
-        positions = [positional_index[word][doc] for word in words]
-        for start_pos in positions[0]:
-            if all(start_pos + i in positions[i] for i in range(1, len(words))):
-                matched_docs.append(doc)
-                break
-
-    return matched_docs
-
-# ------------------ Display Results ------------------
-
-def show_results(corrected_queries, docs, positional_index):
-    """
-    Displays corrected queries with matching document indices in the following format:
-    'query' found in documents: [doc_id1, doc_id2, ...]
-    """
-    for corr in corrected_queries:
-        matched_docs = search_documents(corr, positional_index)
-        indices = [doc["Index"] for doc in docs if doc["Index"] in matched_docs]
-        print(f"'{corr}' found in documents: {indices if indices else '(No matches)'}\n")
+    return list(set.intersection(*(set(positional_index[word].keys()) for word in words)))
 
 # ------------------ Main Function ------------------
 
 def main():
     dictionary = load_dictionary("dictionary2.txt")
     docs = load_documents("bool_docs.json")
-
-    # Precompute indices (runs only once)
+    
     soundex_dict = build_soundex_index(dictionary)
-    dictionary_ngrams = build_dictionary_ngrams(dictionary, n=2)  # Precompute n-grams for all dictionary words
+    dictionary_ngrams = build_dictionary_ngrams(dictionary)
     positional_index = build_positional_index(docs)
-
-    print("Hybrid Spelling Correction (Soundex + N-Gram + Levenshtein) with Document Retrieval")
-    print("Enter 'xxx' to exit.\n")
     
     while True:
         query = input("Enter your query: ").strip().lower()
@@ -207,9 +172,8 @@ def main():
             break
         start_time = time.time()
         corrected_queries = correct_query(query, dictionary, soundex_dict, dictionary_ngrams)
-        show_results(corrected_queries, docs, positional_index)
-        elapsed = time.time() - start_time
-        print(f"Time taken for query: {elapsed:.4f} seconds\n")
+        print(corrected_queries)
+        print(f"Time taken: {time.time() - start_time:.4f} sec\n")
 
 if __name__ == "__main__":
     main()
