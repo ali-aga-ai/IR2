@@ -1,8 +1,0 @@
-till now i have create a function merge which merges two chunks / "indexes" for given inverted table
-
-need to create a bigger index table.... nerge recursively on it (pairwise chunk merging) and wrriting to disk 
-
-say after a complete iteration output.json should be = outPutDisk.json
-
-also need to add the index table json outputjson etc to gitignore
-

@@ -5,12 +5,13 @@ import time
 from memory_profiler import memory_usage
 from sortedcontainers import SortedSet
 
-chunk_size = 2000
+chunk_size = 10000
+input_data_path = input("Enter the path for input data (bsbi_docs.json): ")
 
-def createChunks(k):
+def createChunks(k,input_data_path):
     chunk_id = 0  # Track chunk number
     i = 0
-    with open(r"C:\Documents\code\IR2\Assignment-data\bsbi_docs.json", "r") as f:  
+    with open(input_data_path, "r") as f:  
         parser = ijson.items(f, "item") 
 
         with open("output.json", "w") as out_f:  
@@ -67,7 +68,7 @@ def createIndexTable():
 
 start = time.time()
 mem_start = memory_usage()[0]
-number_of_chunks = createChunks(chunk_size)
+number_of_chunks = createChunks(chunk_size, input_data_path)
 createIndexTable()
 end = time.time()
 mem_end = memory_usage()[0]
@@ -115,16 +116,16 @@ def mergeLists(l1,l2):
     result.extend(l1[i:])
     result.extend(l2[j:])
 
-    return result  # Return the merged sorted list
+    return result  # merged sorted list
 
 
 def writeToDisk(l, beginning, p):
     with open(f"index_table{p}.json", "a",encoding ="utf-8") as f:
         for idx, item in enumerate(l):
-            key, value = next(iter(item.items()))  # Extract key-value pair
+            key, value = next(iter(item.items()))  
             if beginning != 0 or idx > 0:
-                f.write(",")  # Add a comma for valid JSON structure
-            f.write(f'"{key}": {json.dumps(value)}')  # Write key-value directly
+                f.write(",")  
+            f.write(f'"{key}": {json.dumps(value)}')  
 
 
 def merge(index1, index2, k, p):
@@ -146,11 +147,11 @@ def merge(index1, index2, k, p):
         if j == 0:
             buff2 = bringKObjects(k, index2, offset2, p)
             
-        # Check termination condition
+        # if both empty means over
         if not buff1 and not buff2:
             break
             
-        # Handle single buffer cases
+        # one empty complete other
         if not buff1:
             writeToDisk(buff2[j:], firstEntry, p)
             break
@@ -159,7 +160,6 @@ def merge(index1, index2, k, p):
             break
             
         buff3 = []
-        # Merge process
         while i < len(buff1) and j < len(buff2):
             key1, val1 = next(iter(buff1[i].items()))
             key2, val2 = next(iter(buff2[j].items()))
@@ -176,7 +176,6 @@ def merge(index1, index2, k, p):
                 i += 1
                 j += 1
 
-        # Handle buffer exhaustion and reset counters
         if i == len(buff1):
             offset1 += k
             i = 0
@@ -238,7 +237,7 @@ def final(number_of_chunks):
     result = math.ceil(math.log2(number_of_chunks))
     for i in range(result + 1):
         mergeAll(5000, i + 1)
-# file_path = f"index_table{i-1}.json"
+        # file_path = f"index_table{i-1}.json"
         # if i-1 > 0:
         #     os.remove(file_path)
     end_time = time.time()

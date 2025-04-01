@@ -1,0 +1,25 @@
+Experiment 1: Boolean Retrieval
+
+cd exp1  
+python preprocessing.py 
+
+Inputs:
+bool_docs.json, bool_queries.txt (e.g., ../Assignment-data/bool_docs.json)
+Output paths: output.json, results.txt
+--------------------
+Experiment 2:
+Ensure the files dictionary2.txt, bool_docs.json, and spell_queries.json are in the same directory as the model scripts.
+
+Navigate to this directory in the command prompt
+
+cd exp2
+The filename can be HybridModel.py, Ngram.py, Soundex.py, Levenshtein_Distance.py  reprhase this too
+run filename.py
+-------------------
+Experiment 3: BSBI Method
+
+cd exp3  
+python mergeTwo.py  
+Input: bsbi_docs.json (e.g., ../Assignment-data/bsbi_docs.json)
+
+pip install -r requirements.txt  

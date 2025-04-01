@@ -22,11 +22,11 @@ class ProcessingState:
                 default_state = {
                     'all_chunks': [],
                     'processed_pdfs': [],
-                    'completed_embeddings': [],
+                    'completed_embeddings': [], # completed embeddings are the embeddings that have been successfully processed and stored in the FAISS index. example: if you have 100 chunks and you have processed 50 of them, then the completed_embeddings list will contain the embeddings for those 50 chunks.
                     'last_processed_chunk': 0,
                     'last_update': str(datetime.now())
                 }
-                return {**default_state, **state}
+                return {**default_state, **state} # the **  operator is used for dictionary unpacking, it takes all key value pairs.  and merges default_state and state dictionaries. with state values overriding the ones in default_state if they share the same keys.
         except FileNotFoundError:
             return {
                 'all_chunks': [],
@@ -56,7 +56,7 @@ class ProcessingState:
             self.state['all_chunks'].extend(chunks)
             self.save_state()
 
-def extract_content_from_pdf(pdf_path: str) -> str:
+def extract_content_from_pdf(pdf_path: str) -> str: # here... could extract bullet points separately from text and tables, and append separately to table
     full_content = []
     try:
         with pdfplumber.open(pdf_path) as pdf:
@@ -67,22 +67,23 @@ def extract_content_from_pdf(pdf_path: str) -> str:
                 tables = page.extract_tables()
                 for table in tables:
                     if table:
-                        df = pd.DataFrame(table).fillna('').replace(r'^\s*$', '', regex=True)
+                        df = pd.DataFrame(table).fillna('').replace(r'^\s*$', '', regex=True) # remove empty strings 
                         full_content.append(f"\nTable Content:\n{df.to_string(index=False, header=False)}\n")
     except Exception as e:
         print(f"Error processing PDF {pdf_path}: {e}")
         return ""
-    return "\n".join(full_content)
+    return "\n".join(full_content) # this will join all the text and tables extracted from the pdf into a single string. The tables are formatted as strings with headers and indices removed. 
 
-def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> List[str]:
+def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> List[str]: #ISSUE: IF TABLE EXCEEDS CHUNK SIZE, IT WILL CUT THE TABLE SHORT
     if not text.strip():
         return []
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         separators=["\nTable Content:\n", "\n\n", "\n", " ", ""]
-    )
-    return text_splitter.split_text(text)
+    ) # this is a list of separators that will be used to split the text into chunks. The first one is the most important, as it will be used to split the text into chunks based on the table content. The rest are just for splitting the text into smaller chunks.
+
+    return text_splitter.split_text(text) # this will split the text into chunks of size chunk_size, with an overlap of chunk_overlap characters between consecutive chunks.
 
 def get_embeddings_with_enhanced_retry(
     chunks: List[str],
@@ -108,7 +109,7 @@ def get_embeddings_with_enhanced_retry(
         
         for attempt in range(max_retries):
             try:
-                response = client.embeddings.create(input=batch, model=model)
+                response = client.embeddings.create(input=batch, model=model) # PASSES THE BATCH OF CHUNKS TO THE OPENAI API FOR EMBEDDING
                 batch_embeddings = [item.embedding for item in response.data]
                 embeddings.extend(batch_embeddings)
                 state.update_progress(i + len(batch), embeddings)
@@ -119,7 +120,7 @@ def get_embeddings_with_enhanced_retry(
                 if "insufficient_quota" in str(e):
                     raise RuntimeError("API quota exhausted") from e
                 if attempt == max_retries - 1:
-                    raise
+                    raise # THIS MANUALLY RAISES AN EXCEPTION / ERROR
                 print(f"Retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
                 retry_delay *= 2
@@ -175,22 +176,23 @@ def store_in_faiss(embeddings: List[List[float]], chunks: List[str], index_path:
         raise ValueError(f"Count mismatch: {len(embeddings)} embeddings vs {len(chunks)} chunks")
     
     embeddings_array = np.array(embeddings).astype('float32')
+
+    # removed in case a model other than ada is used    
+    # if embeddings_array.shape[1] != 1536:
+    #     raise ValueError(f"Unexpected embedding dimension: {embeddings_array.shape[1]}")
     
-    if embeddings_array.shape[1] != 1536:
-        raise ValueError(f"Unexpected embedding dimension: {embeddings_array.shape[1]}")
-    
-    index = faiss.IndexFlatL2(embeddings_array.shape[1])
+    index = faiss.IndexFlatL2(embeddings_array.shape[1]) # stores the embeddings in an  "index" which abstracts away the details of the underlying data structure. The IndexFlatL2 is a simple index that uses L2 distance (Euclidean distance) for nearest neighbor search.
     index.add(embeddings_array)
     faiss.write_index(index, index_path)
     
-    metadata = pd.DataFrame({
+    metadata = pd.DataFrame({ # metadata is a pandas dataframe that stores the chunks and their corresponding indices. This is used to retrieve the chunks later when querying the index.
         'chunk_text': chunks,
         'embedding_index': range(len(chunks))
     })
-    metadata.to_pickle(metadata_path)
+    metadata.to_pickle(metadata_path) # pickle basically helps to serialize the dataframe into a binary format that can be saved to disk and loaded back later. (efficient retreival) could also use json, but pickle is faster and more efficient for large dataframes.
     
     try:
-        num_vectors, num_chunks = verify_faiss_storage(index_path, metadata_path)
+        num_vectors, num_chunks = verify_faiss_storage(index_path, metadata_path) # this will verify that the vectors and metadata have been stored correctly in the FAISS index and the metadata file.
         print(f"Successfully stored {num_vectors} vectors with metadata")
     except Exception as e:
         if os.path.exists(index_path):
@@ -212,12 +214,12 @@ def test_pipeline(pdf_folder: str, api_key: str):
         for f in os.listdir(pdf_folder) 
         if f.endswith('.pdf') and 
         os.path.join(pdf_folder, f) not in state.state['processed_pdfs']
-    ]
+    ] # this will get all the pdfs in the folder that have not been processed yet.
     
-    for pdf in new_pdfs:
+    for pdf in new_pdfs: # THIS IS THE MAIN LOOP, IT EXTRACTS THE CONTENT FROM THE PDF AND CHUNKS IT INTO SMALLER PIECES. THEN IT UPDATES THE STATE WITH THE NEW CHUNKS. (CHUNKING DOES NOT MEAN EMBEDDING, IT JUST MEANS SPLITTING THE TEXT INTO SMALLER PIECES) (HENCE CHUNKING CAN BE IMPROVED)
         try:
             print(f"\nProcessing {pdf}")
-            content = extract_content_from_pdf(pdf)
+            content = extract_content_from_pdf(pdf) 
             if not content:
                 print(f"Warning: No content extracted from {pdf}")
                 continue
@@ -240,8 +242,8 @@ def test_pipeline(pdf_folder: str, api_key: str):
     print(f"\nTotal chunks to process: {len(all_chunks)}")
     
     try:
-        embeddings = get_embeddings_with_enhanced_retry(all_chunks, state, api_key=api_key)
-        store_in_faiss(embeddings, all_chunks)
+        embeddings = get_embeddings_with_enhanced_retry(all_chunks, state, api_key=api_key) # this will get the embeddings for all the chunks. It will retry if it fails, and it will update the state with the new embeddings.
+        store_in_faiss(embeddings, all_chunks) # this will store the embeddings in the FAISS index and the metadata file.
         
         num_vectors, num_chunks = verify_faiss_storage()
         print(f"\nSuccess: {num_vectors} vectors stored for {num_chunks} chunks")
@@ -255,8 +257,8 @@ def test_pipeline(pdf_folder: str, api_key: str):
 
 if __name__ == "__main__":
     pdf_folder = "./pdfs"
-    openai_api_key = "Add API key here"  # Replace with actual key
-    
+    openai_api_key = ""  
+    print("A message: Open AI API KEY Needed")
     try:
         test_pipeline(pdf_folder, openai_api_key)
     except Exception as e:

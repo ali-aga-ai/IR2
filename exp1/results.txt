@@ -11,7 +11,7 @@ for query 9 the documents are {1371}
 for query 10 the documents are set()
 for query 11 the documents are {13, 486}
 for query 12 the documents are {627, 52, 390, 14}
-for query 13 the documents are {15}
+for query 13 the documents are {15}cd..
 for query 14 the documents are {1281, 961, 131, 135, 72, 377, 16, 17, 336, 348, 1237, 343, 1241, 1212, 125, 255}
 for query 15 the documents are {17, 1372}
 for query 16 the documents are {18}
