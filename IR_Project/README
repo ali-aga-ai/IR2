@@ -5,3 +5,6 @@ To run code:
 2) python main.py 
 3) to query, just replace the api key, with your openAi API key and run python query.py, with your query inside userQuery
 
+POTENTIAL IMPROVEMENT: 
+THE CORE THING WE WANNA DO IS TO CREATE BETTER BULLET POINT CHUNKING AND ENSURE THAT CHUNKING IS DONE IN A WAY THAT TABLES  AND BULLET POINTS ARENT SPLIT  BETWEEN CHUNKS
+You can prevent splitting by pre-processing your text to mark bullet lists and tables with unique delimiters, then adding those markers as top-priority separators. This way, when the text splitter runs, it treats those marked sections as indivisible chunks.
