@@ -68,7 +68,7 @@ def extract_content_from_pdf(pdf_path: str) -> str: # here... could extract bull
                 for table in tables:
                     if table:
                         df = pd.DataFrame(table).fillna('').replace(r'^\s*$', '', regex=True) # remove empty strings 
-                        full_content.append(f"\nTable Content:\n{df.to_string(index=False, header=False)}\n")
+                        full_content.append(f"\nTable Content:\n{df.to_string(index=False, header=False)}\nTable End\n") # this will convert the table to a string and remove the index and header. The index is the row number, and the header is the column names. This is done to make the table easier to read.
     except Exception as e:
         print(f"Error processing PDF {pdf_path}: {e}")
         return ""
