@@ -1,9 +1,19 @@
+''' to run:
+python -m venv env          # create env
+env\Scripts\activate        # activate (Windows)
+pip install faiss-cpu nltk rouge-score numpy openai transformers sentence-transformers
+replace api_key with actual api key: 
+python evaluation.py
+to exit environment: deactivate
+'''
+
 from query import query
 import faiss
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from rouge_score import rouge_scorer
+from sentence_transformers import SentenceTransformer, util
 
 api_key = "" 
-query("How to apply for a leave of absence?", api_key)
 
 
 benchmark_qna = {
@@ -86,6 +96,14 @@ for question, answer in benchmark_qna.items():
     print("Model Response:")
     hypothesis_answer = query(question, api_key)
     expected_answer = answer
+
+    model = SentenceTransformer('all-MiniLM-L6-v2')  # fast + good
+    emb1 = model.encode(expected_answer, convert_to_tensor=True)
+    emb2 = model.encode(hypothesis_answer, convert_to_tensor=True)
+
+    score = util.pytorch_cos_sim(emb1, emb2)
+    print("BERT SCORE using MiniLM Model  ", score.item())  # cosine similarity between 0 and 1
+
     # Just split by space (no nltk tokenizer)
     ref_tokens = [expected_answer.split()]
     cand_tokens = hypothesis_answer.split()
@@ -93,7 +111,14 @@ for question, answer in benchmark_qna.items():
     score = sentence_bleu(ref_tokens, cand_tokens, smoothing_function=smoothie)    
     query_scores.append(score)
     print(f"BLEU Score: {score:.4f}")
+    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+    scores = scorer.score(expected_answer, hypothesis_answer)
+
+    print("ROUGE-1:", scores['rouge1'].fmeasure)
+    print("ROUGE-2:", scores['rouge2'].fmeasure)
+    print("ROUGE-L:", scores['rougeL'].fmeasure)
     print("\n" + "="*50 + "\n")
+
 
 
 
