@@ -8,8 +8,8 @@ import pandas as pd
 import time
 import json
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
-
+from typing import List, Dict, Optional, Tuple, Any, Union
+from unitTest import chunk_text_hybrid
 class ProcessingState:
     def __init__(self, state_file="processing_state.json"):
         self.state_file = state_file
@@ -50,7 +50,7 @@ class ProcessingState:
         self.state['completed_embeddings'] = new_embeddings
         self.save_state()
     
-    def add_processed_pdf(self, pdf_path: str, chunks: List[str]):
+    def add_processed_pdf(self, pdf_path: str, chunks:  List[Dict[str, Any]]):
         if pdf_path not in self.state['processed_pdfs']:
             self.state['processed_pdfs'].append(pdf_path)
             self.state['all_chunks'].extend(chunks)
@@ -85,8 +85,8 @@ def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> Lis
 
     return text_splitter.split_text(text) # this will split the text into chunks of size chunk_size, with an overlap of chunk_overlap characters between consecutive chunks.
 
-def get_embeddings_with_enhanced_retry(
-    chunks: List[str],
+def get_embeddings_with_enhanced_retry( #returns List[Tuple[List[float], str]]
+    chunks: List[Dict[str, Any]],
     state: ProcessingState,
     model: str = "text-embedding-ada-002",
     api_key: str = None,
@@ -102,21 +102,28 @@ def get_embeddings_with_enhanced_retry(
     start_idx = 0
     
     print(f"Processing {len(chunks)} chunks")
-    
     for i in range(start_idx, len(chunks), batch_size):
         batch = chunks[i:i + batch_size]
+        print(batch)
         retry_delay = initial_retry_delay
         
         for attempt in range(max_retries):
             try:
-                response = client.embeddings.create(input=batch, model=model) # PASSES THE BATCH OF CHUNKS TO THE OPENAI API FOR EMBEDDING
-                batch_embeddings = [item.embedding for item in response.data]
+                texts = [chunk["text"] for chunk in batch]
+                print("-dfdfsf------------------------------------")
+                response = client.embeddings.create(input=texts, model=model) # PASSES THE BATCH OF CHUNKS TO THE OPENAI API FOR EMBEDDING
+                batch_embeddings = [
+                        {"embedding": item.embedding, "source": batch[j]["source"]}
+                        for j, item in enumerate(response.data)
+                    ]
+               # for every chunk, find its embedding and store it with its pdf file
                 embeddings.extend(batch_embeddings)
                 state.update_progress(i + len(batch), embeddings)
                 print(f"Processed chunks {i}-{i+len(batch)-1}")
                 time.sleep(1)
                 break
             except Exception as e:
+                print(e)
                 if "insufficient_quota" in str(e):
                     raise RuntimeError("API quota exhausted") from e
                 if attempt == max_retries - 1:
@@ -168,14 +175,16 @@ def verify_faiss_storage(index_path: str = "vector_index.faiss", metadata_path: 
     
     return index.ntotal, len(metadata)
 
-def store_in_faiss(embeddings: List[List[float]], chunks: List[str], index_path: str = "vector_index.faiss", metadata_path: str = "chunks_metadata.pkl") -> None:
+def store_in_faiss(embeddings:List[Dict[str, Union[List[float], str]]], chunks:List[Dict[str, Any]], index_path: str = "vector_index.faiss", metadata_path: str = "chunks_metadata.pkl") -> None:
     if not embeddings or not chunks:
         raise ValueError("No embeddings or chunks to store")
     
     if len(embeddings) != len(chunks):
         raise ValueError(f"Count mismatch: {len(embeddings)} embeddings vs {len(chunks)} chunks")
     
-    embeddings_array = np.array(embeddings).astype('float32')
+    embedding_vectors = [item["embedding"] for item in embeddings]
+    embeddings_array = np.array(embedding_vectors).astype('float32')
+
 
     # removed in case a model other than ada is used    
     # if embeddings_array.shape[1] != 1536:
@@ -184,11 +193,15 @@ def store_in_faiss(embeddings: List[List[float]], chunks: List[str], index_path:
     index = faiss.IndexFlatL2(embeddings_array.shape[1]) # stores the embeddings in an  "index" which abstracts away the details of the underlying data structure. The IndexFlatL2 is a simple index that uses L2 distance (Euclidean distance) for nearest neighbor search.
     index.add(embeddings_array)
     faiss.write_index(index, index_path)
-    
-    metadata = pd.DataFrame({ # metadata is a pandas dataframe that stores the chunks and their corresponding indices. This is used to retrieve the chunks later when querying the index.
-        'chunk_text': chunks,
+    chunk_texts = [chunk["text"] for chunk in chunks]
+    pdf_files = [chunk["source"] for chunk in chunks]
+
+    metadata = pd.DataFrame({
+        'chunk_text': chunk_texts,
+        'pdf_files': pdf_files,
         'embedding_index': range(len(chunks))
     })
+
     metadata.to_pickle(metadata_path) # pickle basically helps to serialize the dataframe into a binary format that can be saved to disk and loaded back later. (efficient retreival) could also use json, but pickle is faster and more efficient for large dataframes.
     
     try:
@@ -214,17 +227,21 @@ def test_pipeline(pdf_folder: str, api_key: str):
         for f in os.listdir(pdf_folder) 
         if f.endswith('.pdf') and 
         os.path.join(pdf_folder, f) not in state.state['processed_pdfs']
+
     ] # this will get all the pdfs in the folder that have not been processed yet.
     
     for pdf in new_pdfs: # THIS IS THE MAIN LOOP, IT EXTRACTS THE CONTENT FROM THE PDF AND CHUNKS IT INTO SMALLER PIECES. THEN IT UPDATES THE STATE WITH THE NEW CHUNKS. (CHUNKING DOES NOT MEAN EMBEDDING, IT JUST MEANS SPLITTING THE TEXT INTO SMALLER PIECES) (HENCE CHUNKING CAN BE IMPROVED)
         try:
             print(f"\nProcessing {pdf}")
-            content = extract_content_from_pdf(pdf) 
-            if not content:
-                print(f"Warning: No content extracted from {pdf}")
-                continue
+            # content = extract_content_from_pdf(pdf) 
+            # if not content:
+            #     print(f"Warning: No content extracted from {pdf}")
+            #     continue
                 
-            chunks = chunk_text(content)
+            chunks = chunk_text_hybrid(pdf) #returns List[Dict[str, Any]]
+            chunkType = [type(item) for item in chunks]
+            print(chunkType)
+
             if chunks:
                 state.add_processed_pdf(pdf, chunks)
                 print(f"Added {len(chunks)} chunks from {os.path.basename(pdf)}")
@@ -234,7 +251,9 @@ def test_pipeline(pdf_folder: str, api_key: str):
             print(f"Error processing {pdf}: {str(e)}")
             continue
     
-    all_chunks = state.state['all_chunks']
+    all_chunks = state.state['all_chunks'] #List[Tuple[str,str]]
+    # chunkType = [type(item) for item in all_chunks]
+    # print(chunkType)
     if not all_chunks:
         print("No chunks to process. Check PDF content and extraction.")
         return
@@ -242,6 +261,7 @@ def test_pipeline(pdf_folder: str, api_key: str):
     print(f"\nTotal chunks to process: {len(all_chunks)}")
     
     try:
+        # embedding
         embeddings = get_embeddings_with_enhanced_retry(all_chunks, state, api_key=api_key) # this will get the embeddings for all the chunks. It will retry if it fails, and it will update the state with the new embeddings.
         store_in_faiss(embeddings, all_chunks) # this will store the embeddings in the FAISS index and the metadata file.
         

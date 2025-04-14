@@ -34,6 +34,7 @@ def query_faiss(query_text, api_key, top_k=4):
     for i, idx in enumerate(indices[0]):
         if 0 <= idx < len(pdf_files):
             valid_results.append((pdf_files.iloc[idx]['chunk_text'], distances[0][i]))
+            print(pdf_files.iloc[idx]['pdf_files'])
         else:
             print(f"Warning: Index {idx} is out of bounds")
     

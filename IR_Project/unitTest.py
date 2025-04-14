@@ -37,33 +37,86 @@ def mark_bullet_points_and_table(text):
     return text
 
 
-delimitered_text = mark_bullet_points_and_table(extract_content_from_pdf("C:\Documents\code\IR2\IR_Project\pdfs\DRC_Guidelines-2015-updated.pdf"))
+def group_text(pdf_file):
+    delimitered_text = mark_bullet_points_and_table(extract_content_from_pdf(pdf_file))
 
-# print(bullets)
-split_text = re.split(r'(@BULLET_START|@BULLET_END|@NUMBERED_START|@NUMBERED_END|@TABLE_START|@TABLE_END)', delimitered_text)
-print(split_text)
-grouped = []
-i = 0
-while i < len(split_text):
-    if split_text[i] in ['@BULLET_START', '@NUMBERED_START', '@TABLE_START']:
-        start_tag = split_text[i]
-        content = split_text[i] + split_text[i + 1] + split_text[i + 2]  # start + content + end
-        grouped.append(content)
-        i += 3
-    else:
-        grouped.append(split_text[i])
-        i += 1
-
-def chunk_text(split_text, chunk_size=500, chunk_overlap=50):
-    final_chunks = []
-    for section in split_text:
-        if section.startswith('@BULLET_START') or section.startswith('@NUMBERED_START') or section.startswith('@TABLE_START'):
-            final_chunks.append(section)
+    # print(bullets)
+    split_text = re.split(r'(@BULLET_START|@BULLET_END|@NUMBERED_START|@NUMBERED_END|@TABLE_START|@TABLE_END)', delimitered_text)
+    grouped = []
+    i = 0
+    while i < len(split_text):
+        if split_text[i] in ['@BULLET_START', '@NUMBERED_START', '@TABLE_START']:
+            content = split_text[i] + split_text[i + 1] + split_text[i + 2]  # start + content + end
+            grouped.append(content)
+            i += 3
         else:
-            i = 0
-            while i < len(section):
-                final_chunks.append(section[i:i + chunk_size])
-                i += chunk_size - chunk_overlap  # step forward with overlap
-    return final_chunks
+            grouped.append(split_text[i])
+            i += 1
+    return grouped
 
-print(chunk_text(grouped))
+def chunk_text_hybrid(pdf_link: str, chunk_size: int = 500, chunk_overlap: int = 50) -> list[dict]:
+    """
+    Chunks text from a PDF with special handling for tables and bullet points.
+    Returns a list of dictionaries with keys 'text' and 'source'
+    """
+    try:
+        # Make sure pdf_link is valid and accessible
+        split_text = group_text(pdf_link)
+        final_chunks = []
+        prev_tail = ""
+        
+        for section in split_text:
+            # Handle empty sections
+            if not section or not section.strip():
+                continue
+                
+            is_special = (
+                section.startswith('@BULLET_START') or
+                section.startswith('@NUMBERED_START') or
+                section.startswith('@TABLE_START')
+            )
+            
+            if is_special:
+                # Add previous tail as context, then full section
+                combined = prev_tail + section
+                if combined.strip():  # Only add non-empty chunks
+                    final_chunks.append({
+                        'text': combined,
+                        'source': pdf_link
+                    })
+                
+                # Save new tail from this special section
+                prev_tail = section[-chunk_overlap:] if len(section) >= chunk_overlap else section
+            else:
+                # Regular text chunking with overlap
+                i = 0
+                while i < len(section):
+                    chunk = section[i:i + chunk_size]
+                    
+                    # Prepend overlap only to the first chunk of this section
+                    if i == 0:
+                        chunk = prev_tail + chunk
+                    
+                    if chunk.strip():  # Only add non-empty chunks
+                        final_chunks.append({
+                            'text': chunk,
+                            'source': pdf_link
+                        })
+                    
+                    i += chunk_size - chunk_overlap
+                
+                # Save new tail from last normal chunk
+                prev_tail = section[-chunk_overlap:] if len(section) >= chunk_overlap else section
+        
+        # Debug info
+        print(f"Generated {len(final_chunks)} chunks")
+        if final_chunks:
+            print(f"First chunk type: {type(final_chunks[0])}")
+            print(f"First chunk structure: {final_chunks[0]}")
+        
+        return final_chunks
+    except Exception as e:
+        print(f"Error in chunk_text_hybrid for {pdf_link}: {str(e)}")
+        # Return empty list to avoid crashes
+        return []
+
