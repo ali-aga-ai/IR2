@@ -5,4 +5,6 @@
 /IR_Project/chunks_metadat*
 /IR_Project/vector_inde*
 /IR_Project/tau*
+/IR_Project/env
+/IR_Project/__pycache__
 /exp3/*.json

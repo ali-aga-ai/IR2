@@ -54,7 +54,7 @@ def group_text(pdf_file):
             i += 1
     return grouped
 
-def chunk_text_hybrid(pdf_link: str, chunk_size: int = 500, chunk_overlap: int = 50) -> list[dict]:
+def chunk_text_hybrid(pdf_link: str, chunk_size: int = 1500, chunk_overlap: int = 500) -> list[dict]:
     """
     Chunks text from a PDF with special handling for tables and bullet points.
     Returns a list of dictionaries with keys 'text' and 'source'

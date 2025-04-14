@@ -104,13 +104,11 @@ def get_embeddings_with_enhanced_retry( #returns List[Tuple[List[float], str]]
     print(f"Processing {len(chunks)} chunks")
     for i in range(start_idx, len(chunks), batch_size):
         batch = chunks[i:i + batch_size]
-        print(batch)
         retry_delay = initial_retry_delay
         
         for attempt in range(max_retries):
             try:
                 texts = [chunk["text"] for chunk in batch]
-                print("-dfdfsf------------------------------------")
                 response = client.embeddings.create(input=texts, model=model) # PASSES THE BATCH OF CHUNKS TO THE OPENAI API FOR EMBEDDING
                 batch_embeddings = [
                         {"embedding": item.embedding, "source": batch[j]["source"]}
