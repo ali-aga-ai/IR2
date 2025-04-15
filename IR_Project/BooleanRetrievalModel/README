@@ -1,0 +1,2 @@
+booleanRetrieval.py chunks the documents using the same logic as unitTest.py(using the custom chunking strategy).
+booleanQuery.py is a basic boolean querying interface that allows queries with AND, OR, NOT and parantheses to create a query. The output returned will be ALL the relevant chunks that have the final result of the query keywords.
