@@ -238,7 +238,7 @@ def test_pipeline(pdf_folder: str, api_key: str):
                 
             chunks = chunk_text_hybrid(pdf) #returns List[Dict[str, Any]]
             chunkType = [type(item) for item in chunks]
-            print(chunkType)
+            # print(chunkType)
 
             if chunks:
                 state.add_processed_pdf(pdf, chunks)
@@ -275,7 +275,7 @@ def test_pipeline(pdf_folder: str, api_key: str):
 
 if __name__ == "__main__":
     pdf_folder = "./pdfs"
-    openai_api_key = ""  
+    openai_api_key ="" 
     print("A message: Open AI API KEY Needed")
     try:
         test_pipeline(pdf_folder, openai_api_key)
