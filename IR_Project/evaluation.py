@@ -1,18 +1,18 @@
-''' to run:
-python -m venv env          # create env
-env\Scripts\activate        # activate (Windows)
-pip install faiss-cpu nltk rouge-score numpy openai transformers sentence-transformers
-replace api_key with actual api key: 
-python evaluation.py
-to exit environment: deactivate
-'''
+# ''' to run:
+# python -m venv env          # create env
+# env\Scripts \ activate        # activate (Windows)
+# pip install faiss-cpu nltk rouge-score numpy openai transformers sentence-transformers
+# replace api_key with actual api key: 
+# python evaluation.py
+# to exit environment: deactivate
+# '''
 
 from query import query
 import faiss
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from rouge_score import rouge_scorer
 from sentence_transformers import SentenceTransformer, util
-
+import pandas as pd
 api_key = "" 
 
 
@@ -86,6 +86,18 @@ benchmark_qna = {
     "How is overhead cost distributed among different funds?": "Overhead costs are allocated among the Professional Development Fund (PDF), Department Development Fund (DDF), and Campus Development Fund (CDF) based on a set percentage.",
     
     "How is a research scholar appointed after project approval?": "After receiving project approval, an advertisement is issued, followed by the shortlisting of candidates, conducting interviews, and final selection with an offer letter."
+
+,
+ "Q. What are the eligibility criteria for the admission in Full Time Ph.D programme?": " (i) M.E/M.Pharm./MBA/ M.Phil of BITS or its equivalent with a minimum of 60 per cent aggregate.\n(ii) Candidate with an M Sc/B.E or an equivalent with a minimum of 60% will also be considered for provisional admission to the Ph D programme.\n(iii) For Ph D programme in languages and humanities, candidates with an M.Phil/M A and with minimum of 55 per cent aggregate may also be considered. Such candidates have to undergo a minimum of two semester course work prescribed by DRC.",
+    "Q. What are the eligibility criteria for the admission in Part Time/Aspirant Ph.D programme?": "A person working in reputed research organizations, academic Institutes and industries, situated preferably in the close vicinity of one of the campuses of BITS Pilani, can be admitted on part time basis provided\n(i) the candidate is working in an organization which encourages and facilitates research\n(ii) candidate meets the requisite minimum qualification for admission to Ph. D programme of BITS Pilani as mentioned in (a), (b) or (c)\n(iii) candidate has minimum of one year work experience in related field, and (iv) candidate furnishes a \"consent & no objection certificate\"  from his/her parent organization.\nIndustries and R & D Organizations collaborating with BITS can sponsor candidates to work for Ph.D under the Ph.D Aspirants Scheme. Under this Scheme such Employed professionals working in Industries and R&D Organizations having long experience and proven competence aspiring for Ph.D. programme will be considered and will be allowed to pursue their research at their own locations of work. They will choose one BITS faculty as supervisor and or as co-supervisor.",
+    "Q. Can you please tell about the PhD stipend?": "1. Depending on the availability, student will be provided fellowship stipend either from BITS or from sponsored projects.\n2. Student can avail fellowship provided by National funding agencies such as UGC, CSIR, DBT, DST, ICMR etc.\nNote that the Institute fellowship stipend to the Ph.D. student admitted after 1st Aug 2011 or later will be limited for first five years from the date of admission in the PhD programme.",
+    "Q. Sir, I got admitted in the Institute PhD programme in  August,2011 with Institute fellowship.  How long will I get the Institute fellowship support?": "A. You will get the Institute fellowship support till July,2016.",
+    "Q. Can you please say something about the availability of hostel accommodation of PhD scholars?": "Accommodation to Full Time PhD scholars in hostels is subject to the availability of rooms in hostels. Students with self-sponsored project fellowship can get their HRA and stay outside.",
+    "Q. Can you please give some ideas about the leave that a PhD student can avail?": "Each “Full- Time” candidate is eligible for 30 days of vacation and 15 days of casual leave in an academic year (August to July).\nSpecial casual leave of 15 days is permissible for attending conferences/workshop/symposiums/training programmes, etc.\nFor female candidates, maternity leave of 90 days is permitted.",
+    "Q. What is the duration of the PhD programme?": "A student must submit his thesis within ten semesters (excluding summer terms) to be counted from the semester next to passing the qualifying examination. If the student fails to submit his thesis within stipulated period he may request the respective DRC for extension of time. Such extension for submission of thesis are limited to a maximum of four semesters. Thus, the duration for submitting final thesis (including all extensions and semester withdrawals) are limited to 14 semesters. If a candidate fails to submit his/her final thesis during this period, he/she will be discontinued from the programme. The female candidates who have availed maternity leave during this period may be given one extra semester for thesis submission.",
+    "Q. In case I get a job, can I switch over from Full Time to Part Time PhD programme?": "Yes. A student admitted as Full Time scholar may be allowed to take transfer to Part time scheme provided-\nStudents meet the basic eligibility criteria of Part Time student.\nStudent has completed major part of his research work as certified by the supervisor and has completed at least 20 units of Ph D thesis course.\nThe concerned Ph D supervisor, co-supervisor and respective DRC agree for such transfer. \nNote: The DRC may also recommend the transfer of a student from Part-Time to Full Time category, provided research positions and stipend are available. Approval for such transfers will be granted by Dean ARD in consultation with DCC.",
+    "Q. Can you say something(e.g. quality, number..) about the publication of my PhD thesis work?": "1. Minimum Two publications in peer reviewed journals (as first author in at least one publication) is expected to consist  your PhD thesis chapters. \n2. You are encouraged to publish your work in the scopus listed peer-reviewed journals/conference proceedings(as full papers). For the scopus list journals/conference proceedings, you are requested to be in touch with your supervisor(s) or HOD or DRC convener. \n3. In case you are the first author in a publication, it is assumed that major portion  of the work is done by you. If there are other PhD student(s) in that publication as second/third author(s)...you need to specify clearly your work/contribution, while mentioning their contribution in that publication  clearly.\n4. In case you are the second author in a publication and there are other PhD student(s) as first author and/or third author etc in that publication, you need to mention clearly  your contribution in that publication and report only your contribution in that publication  into your PhD  thesis. \n5. In either of the above two cases (Point 2 and/or Point 3)  you need to ensure that  the work reported by you in your PhD thesis, has not already been reported or will not be reported  by the other PhD scholars  in their respective PhD theses.\n6. You  may have to  submit a declaration letter stating clearly your contribution(as first or second author) in the case of  joint paper(s) with other PhD student(s)). The letter  is to be duly forwarded by your PhD supervisor (PhD co-supervisor, if any),  HOD and DRC convener and needs to be submitted along with others documents at the time of your final thesis submission.\n7. In the case of thesis publication,  if there are no PhD students other than you, you don't have to give the above mentioned declaration letter."
+
 }
 
 query_scores = []
@@ -101,23 +113,39 @@ for question, answer in benchmark_qna.items():
     emb1 = model.encode(expected_answer, convert_to_tensor=True)
     emb2 = model.encode(hypothesis_answer, convert_to_tensor=True)
 
-    score = util.pytorch_cos_sim(emb1, emb2)
-    print("BERT SCORE using MiniLM Model  ", score.item())  # cosine similarity between 0 and 1
+    bert_score = util.pytorch_cos_sim(emb1, emb2)
+    print("BERT SCORE using MiniLM Model  ", bert_score.item())  # cosine similarity between 0 and 1
 
     # Just split by space (no nltk tokenizer)
     ref_tokens = [expected_answer.split()]
     cand_tokens = hypothesis_answer.split()
     smoothie = SmoothingFunction().method1  # simple smoothing
-    score = sentence_bleu(ref_tokens, cand_tokens, smoothing_function=smoothie)    
-    query_scores.append(score)
-    print(f"BLEU Score: {score:.4f}")
-    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
-    scores = scorer.score(expected_answer, hypothesis_answer)
+    bleu_score = sentence_bleu(ref_tokens, cand_tokens, smoothing_function=smoothie)    
 
-    print("ROUGE-1:", scores['rouge1'].fmeasure)
-    print("ROUGE-2:", scores['rouge2'].fmeasure)
-    print("ROUGE-L:", scores['rougeL'].fmeasure)
+    print(f"BLEU Score: {bleu_score:.4f}")
+    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+    rouge_scores = scorer.score(expected_answer, hypothesis_answer)
+
+    print("ROUGE-1:", rouge_scores['rouge1'].fmeasure)
+    print("ROUGE-2:", rouge_scores['rouge2'].fmeasure)
+    print("ROUGE-L:", rouge_scores['rougeL'].fmeasure)
     print("\n" + "="*50 + "\n")
+
+    query_score = {
+        "question": question,
+        "expected_answer" : expected_answer,
+        "model_answer" : hypothesis_answer,
+        "bert_score" : bert_score.item(),
+        "bleu_score" : bleu_score,
+        "rouge1" : rouge_scores['rouge1'].fmeasure,
+        "rouge2" : rouge_scores['rouge2'].fmeasure,
+        "rougeL" : rouge_scores['rougeL'].fmeasure,
+    }
+    query_scores.append(query_score)
+    print(query_scores)
+
+df = pd.DataFrame(query_scores)
+df.to_excel("output.xlsx", index=False)
 
 
 
