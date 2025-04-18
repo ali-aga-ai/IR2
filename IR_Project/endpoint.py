@@ -10,12 +10,11 @@ api_key = ""
 @app.route("/respond", methods=['POST'])
 def respond():
 
-
     data = request.get_json(force=True)  # This works with POST
-    print(data)
-    userQuery = data.get('query')
-    answer = query(userQuery, api_key)
-    return answer
+    userQuery = data.get('message')
+    response = query(userQuery, api_key)
+    print(response[-1]['content'])
+    return response[-1]['content']
 
 if __name__ == '__main__':
     app.run(debug=True)

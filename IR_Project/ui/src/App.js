@@ -11,6 +11,9 @@ function App() {
       timestamp: new Date(),
     },
   ]);
+  const [message1, setMessage1] = useState([
+    {"role" : "system", "content": "Hi, I'm your BITS Pilani document assistant. What would you like to know?"}
+  ])
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -42,21 +45,33 @@ function App() {
       sender: 'user',
       timestamp: new Date(),
     };
-    
+
+    const userMessage1 = {
+      role : "user",
+      content : input
+    }
+    const updatedMessage1 = [...message1, userMessage1]; // use this directly
+  
     setMessages(prev => [...prev, userMessage]);
+    setMessage1(updatedMessage1);
     setInput('');
     setIsLoading(true);
   
     try {
       // Await the response from the POST request
       const response = await axios.post("http://localhost:5000/respond", {
-        query: input
+        message: updatedMessage1
       });
       
+      const responseMessage = response.data
+      console.log(responseMessage)
+
+      setMessage1(prev => [...prev,{"role":"system", "content" : responseMessage}])
+
       // Add bot response
       const botResponse = {
         id: messages.length + 2,
-        text: response.data, // Assuming the response has the text as data
+        text: responseMessage, // Assuming the response has the text as data
         sender: 'bot',
         timestamp: new Date(),
       };
