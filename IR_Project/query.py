@@ -45,8 +45,8 @@ def query(userMessages, openai_api_key):
     client = OpenAI(api_key=openai_api_key)
     userQuery = userMessages[-1]['content']
     print("User Query",userQuery)
-    systemPrompt = """You’re a retrieval‑query optimizer specialized for a BITS Pilani guidelines corpus. 
-    Transform any user question into a concise, high-precision query that maximizes finding the exact guideline section. 
+    systemPrompt = """You’re a retrieval‑query optimizer specialized for a BITS Pilani corpus. 
+    Transform any user question into a concise, high-precision query that maximizes finding the exact  section. 
     Follow these steps:
     1. Drop filler (e.g. “please”, “I'd like to know”).
     2. Extract core domain terms
@@ -58,10 +58,10 @@ def query(userMessages, openai_api_key):
 
     Examples:
     Q: “Could you tell me the late fee policy for library books at BITS?”
-    A: “BITS Pilani library fine policy regulations”
+    A: “Library fine policy regulations”
 
     Q: “What’s the procedure to apply for summer internship credits?”
-    A: “BITS Pilani summer internship credit SOP”
+    A: “Summer internship credit SOP”
     """
 
     messages = [{"role": "system", "content": systemPrompt}] + userMessages
@@ -88,7 +88,6 @@ def query(userMessages, openai_api_key):
     resultString = ""
     for i, (chunk_text, distance, sourceDoc) in enumerate(results): 
         resultString+=(f'{i}th Retreived chunk:{chunk_text}... its cosine distance from query vector {distance} its source document {sourceDoc}\n')
-    # print(resultString)
 
     m = [
         {"role": "system", "content": f"""You are given:
@@ -97,7 +96,7 @@ def query(userMessages, openai_api_key):
 
             Your task:
             - Synthesize only the relevant information from those segments.
-            - Be as concise as possible—no extra commentary.
+           
 
             Formatting (exactly):
             Answer: <your brief synthesis here>
