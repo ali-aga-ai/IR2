@@ -53,6 +53,8 @@ def query(userMessages, openai_api_key):
     3. Use official BITS vocabulary (e.g. Regulations, Ordinances, SOP).
     4. Order by specificity (most discriminative terms first).
     5. Output only the final query (4 to 8 words), no extra text.
+    6. DO NOT EVER MENTION YOU ARE AN ASSISTANT< YOU ARE SIMPLY A MESSAGE CONVERTER
+    7. IN NO CIRCUMSTANCE MUST YOU RESPOND WITH AN EMPTY STRING
 
     Examples:
     Q: “Could you tell me the late fee policy for library books at BITS?”
@@ -89,7 +91,22 @@ def query(userMessages, openai_api_key):
     # print(resultString)
 
     m = [
-        {"role": "system", "content": f"You will be given a query and top k retreived segments alongside their file location, you must be a helpful assistant and provide the most relevant useful information to the user. The query will be related to regulation / document retrieval from a set of guidelines designed for BITS Pilani. Do not produce extra information. Try to be brief in responses. Your core job is to sythesize the raw data retreived into a coherent and useful response. For every segment used cite its source, in the format SOURCE: filename."},
+        {"role": "system", "content": f"""You are given:
+            - A user query about BITS Pilani regulations.
+            - The top-k retrieved text segments, each tagged with its source filename.
+
+            Your task:
+            - Synthesize only the relevant information from those segments.
+            - Be as concise as possible—no extra commentary.
+
+            Formatting (exactly):
+            Answer: <your brief synthesis here>
+
+            Citation:
+            For each fact, append “SOURCE: <filename>” Each Source MUST BE on a new line.
+         
+            In source have only the source and nothing more. in the answer there must be no mention of the source.
+            """},
         {"role": "user", "content": f"The query is {userQuery} and the retreived documents are {resultString}."}
     ]
 

@@ -1,27 +1,49 @@
 // App.jsx
-import React, { useState, useRef, useEffect } from 'react';
-import './App.css';
-import axios from 'axios'
+import React, { useState, useRef, useEffect } from "react";
+import "./App.css";
+import axios from "axios";
+
+const dictionary = {
+  "./pdfs\\1.-GUIDELINES-FOR-APPOINTMENT-OF-EXAMINERS-FOR-Ph.D.-THESIS-EXAMINATION.pdf": "1",
+  "./pdfs\\BITS-Pilani-International-Travel-Award_Guidelines-1.pdf":"2",
+  "./pdfs\\10.-Check-list-for-proposal-submission.pdf":"3",
+  "./pdfs\\CheckList_PhD-Thesis-submission.pdf": "4",
+   "./pdfs\\Documents_required.pdf":"5",
+   "./pdfs\\DRC_Guidelines-2015-updated.pdf":"6",
+   "./pdfs\\GCIR SOP_Hyd_11oct.pdf":"7",
+   "./pdfs\\Guidelines_for-PhD-Proposal.pdf":"8",
+   "./pdfs\\Guidelines-for-Recruiting-JRF-.pdf":"9",
+   "./pdfs\\Leave-policy-for-the-institute-supported-PhD-students-1.pdf":"10",
+   "./pdfs\\Leave-policy-for-the-institute-supported-PhD-students.pdf":"11",
+   "./pdfs\\List-of-Sub-areas.pdf":"12",
+   "./pdfs\\PhD Guideline Brochure_2019.pdf":"13",
+
+};
 function App() {
   const [messages, setMessages] = useState([
     {
       id: 1,
       text: "Hi, I'm your BITS Pilani document assistant. What would you like to know?",
-      sender: 'bot',
+      sender: "bot",
       timestamp: new Date(),
+      source: [""],
     },
   ]);
   const [message1, setMessage1] = useState([
-    {"role" : "system", "content": "Hi, I'm your BITS Pilani document assistant. What would you like to know?"}
-  ])
-  const [input, setInput] = useState('');
+    {
+      role: "system",
+      content:
+        "Hi, I'm your BITS Pilani document assistant. What would you like to know?",
+    },
+  ]);
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
   // Auto scroll to bottom when new messages arrive
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -35,50 +57,66 @@ function App() {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    
-    if (input.trim() === '') return;
-    
+
+    if (input.trim() === "") return;
+
     // Add user message
     const userMessage = {
       id: messages.length + 1,
       text: input,
-      sender: 'user',
+      sender: "user",
       timestamp: new Date(),
     };
 
     const userMessage1 = {
-      role : "user",
-      content : input
-    }
+      role: "user",
+      content: input,
+    };
     const updatedMessage1 = [...message1, userMessage1]; // use this directly
-  
-    setMessages(prev => [...prev, userMessage]);
+
+    setMessages((prev) => [...prev, userMessage]);
     setMessage1(updatedMessage1);
-    setInput('');
+    setInput("");
     setIsLoading(true);
-  
+
     try {
       // Await the response from the POST request
       const response = await axios.post("http://localhost:5000/respond", {
-        message: updatedMessage1
+        message: updatedMessage1,
       });
-      
-      const responseMessage = response.data
-      console.log(responseMessage)
 
-      setMessage1(prev => [...prev,{"role":"system", "content" : responseMessage}])
+      const responseMessage = response.data;
+      console.log(responseMessage);
+
+      setMessage1((prev) => [
+        ...prev,
+        { role: "system", content: responseMessage },
+      ]);
+      const lines = responseMessage.match(/^.*\bSOURCE\b.*$/gm);
+      // Remove "SOURCE:" from lines
+      const cleanedLines = [
+        ...new Set(lines.map((line) => line.replace(/SOURCE:/, "").trim())),
+      ];
+
+      console.log(cleanedLines);
+
+      const cleanedMessage = responseMessage.replace(
+        /^.*\bSOURCE\b.*\n?/gm,
+        ""
+      );
 
       // Add bot response
       const botResponse = {
         id: messages.length + 2,
-        text: responseMessage, // Assuming the response has the text as data
-        sender: 'bot',
+        text: cleanedMessage, // Assuming the response has the text as data
+        sender: "bot",
         timestamp: new Date(),
+        sources: cleanedLines,
       };
-      
-      setMessages(prev => [...prev, botResponse]);
+
+      setMessages((prev) => [...prev, botResponse]);
     } catch (error) {
-      console.error('Error sending request:', error);
+      console.error("Error sending request:", error);
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +124,7 @@ function App() {
 
   // Format timestamp
   const formatTime = (date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
@@ -98,20 +136,38 @@ function App() {
             <h1>Document Assistant</h1>
           </div>
         </header>
-        
+
         <div className="messages-container">
           {messages.map((message) => (
-            <div 
-              key={message.id} 
-              className={`message ${message.sender === 'user' ? 'user-message' : 'bot-message'}`}
+            <div
+              key={message.id}
+              className={`message ${
+                message.sender === "user" ? "user-message" : "bot-message"
+              }`}
             >
               <div className="message-bubble">
                 <p>{message.text}</p>
-                <span className="timestamp">{formatTime(message.timestamp)}</span>
+
+                <div className="sources">
+                  {message.sources?.map((src, i) => (
+                    <div key={i} className="source"> 
+                    <button
+                      key={i}
+                      className="source-button"
+                      onClick={() => console.log("Source:", dictionary[src])}
+                    >
+                      {src}
+                    </button>
+                    </div>
+                  ))}
+                </div>
+                <span className="timestamp">
+                  {formatTime(message.timestamp)}
+                </span>
               </div>
             </div>
           ))}
-          
+
           {isLoading && (
             <div className="message bot-message">
               <div className="message-bubble loading">
@@ -123,10 +179,10 @@ function App() {
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
-        
+
         <form className="input-area" onSubmit={handleSend}>
           <input
             type="text"
@@ -136,14 +192,32 @@ function App() {
             placeholder="Ask anything about BITS Pilani..."
             disabled={isLoading}
           />
-          <button 
-            type="submit" 
-            disabled={input.trim() === '' || isLoading}
-            className={input.trim() === '' ? 'disabled' : ''}
+          <button
+            type="submit"
+            disabled={input.trim() === "" || isLoading}
+            className={input.trim() === "" ? "disabled" : ""}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M22 2L11 13"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M22 2L15 22L11 13L2 9L22 2Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </button>
         </form>
