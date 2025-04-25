@@ -13,7 +13,7 @@ from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from rouge_score import rouge_scorer
 from sentence_transformers import SentenceTransformer, util
 import pandas as pd
-api_key = "" 
+api_key = ""
 
 
 benchmark_qna = {

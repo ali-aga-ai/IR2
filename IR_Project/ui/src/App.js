@@ -2,11 +2,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import "./App.css";
 import axios from "axios";
+import { BrowserRouter } from 'react-router-dom';
 
 const dictionary = {
-  "./pdfs\\1.-GUIDELINES-FOR-APPOINTMENT-OF-EXAMINERS-FOR-Ph.D.-THESIS-EXAMINATION.pdf": "1",
+  "./pdfs\\1.-GUIDELINES-FOR-APPOINTMENT-OF-EXAMINERS-FOR-Ph.D.-THESIS-EXAMINATION.pdf": "https://drive.google.com/drive/folders/1_uMRE3LMgZNQfUNAOfzYRErZsNf5bfmT",
   "./pdfs\\BITS-Pilani-International-Travel-Award_Guidelines-1.pdf":"2",
-  "./pdfs\\10.-Check-list-for-proposal-submission.pdf":"3",
+  "./pdfs\\10.-Check-list-for-proposal-submission.pdf":"https://drive.google.com/drive/folders/1_uMRE3LMgZNQfUNAOfzYRErZsNf5bfmT",
   "./pdfs\\CheckList_PhD-Thesis-submission.pdf": "4",
    "./pdfs\\Documents_required.pdf":"5",
    "./pdfs\\DRC_Guidelines-2015-updated.pdf":"6",
@@ -19,7 +20,11 @@ const dictionary = {
    "./pdfs\\PhD Guideline Brochure_2019.pdf":"13",
 
 };
+
+
+
 function App() {
+
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -128,6 +133,8 @@ function App() {
   };
 
   return (
+    <BrowserRouter>
+
     <div className="app-container">
       <div className="chat-container">
         <header className="chat-header">
@@ -154,7 +161,7 @@ function App() {
                     <button
                       key={i}
                       className="source-button"
-                      onClick={() => console.log("Source:", dictionary[src])}
+                      onClick={() => window.open("https://drive.google.com/drive/folders/1_uMRE3LMgZNQfUNAOfzYRErZsNf5bfmT?usp=sharing")}
                     >
                       {src}
                     </button>
@@ -223,6 +230,8 @@ function App() {
         </form>
       </div>
     </div>
+    </BrowserRouter>
+
   );
 }
 

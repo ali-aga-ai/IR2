@@ -14,9 +14,9 @@ def get_embedding(text, api_key,model="text-embedding-ada-002"):
 
 def query_faiss(query_text, api_key, top_k=7):
 
-    index = faiss.read_index("vector_index.faiss")
+    index = faiss.read_index("vector_index4.faiss")
 
-    with open("chunks_metadata.pkl", "rb") as f:
+    with open("chunks_metadata4.pkl", "rb") as f:
         pdf_files = pickle.load(f)
 
     query_vector = get_embedding(query_text, api_key)
@@ -28,97 +28,44 @@ def query_faiss(query_text, api_key, top_k=7):
     
     #print(f"FAISS returned indices: {indices[0]}")
     
-    # Add bounds checking
+     # Add bounds checking
     valid_results = []
-
     for i, idx in enumerate(indices[0]):
         if 0 <= idx < len(pdf_files):
-            valid_results.append((pdf_files.iloc[idx]['chunk_text'], distances[0][i], pdf_files.iloc[idx]['pdf_files']))
-            # print(pdf_files.iloc[idx]['pdf_files'])
+            valid_results.append((pdf_files.iloc[idx]['chunk_text'], distances[0][i]))
         else:
             print(f"Warning: Index {idx} is out of bounds")
-    # print(str(valid_results))
+    
     return valid_results
 
-
-def query(userMessages, openai_api_key):
-    client = OpenAI(api_key=openai_api_key)
-    userQuery = userMessages[-1]['content']
-    print("User Query",userQuery)
-    systemPrompt = """You’re a retrieval‑query optimizer specialized for a BITS Pilani corpus. 
-    Transform any user question into a concise, high-precision query that maximizes finding the exact  section. 
-    Follow these steps:
-    1. Drop filler (e.g. “please”, “I'd like to know”).
-    2. Extract core domain terms
-    3. Use official BITS vocabulary (e.g. Regulations, Ordinances, SOP).
-    4. Order by specificity (most discriminative terms first).
-    5. Output only the final query (4 to 8 words), no extra text.
-    6. DO NOT EVER MENTION YOU ARE AN ASSISTANT< YOU ARE SIMPLY A MESSAGE CONVERTER
-    7. IN NO CIRCUMSTANCE MUST YOU RESPOND WITH AN EMPTY STRING
-
-    Examples:
-    Q: “Could you tell me the late fee policy for library books at BITS?”
-    A: “Library fine policy regulations”
-
-    Q: “What’s the procedure to apply for summer internship credits?”
-    A: “Summer internship credit SOP”
-    """
-
-    messages = [{"role": "system", "content": systemPrompt}] + userMessages
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini-2024-07-18",
-            messages=messages
-        )
-
-    except Exception as e:
-        print("Error during OpenAI API call:", e)
-        return "Failed to generate query."
-
-
-    updatedQuery = response.choices[0].message.content
-    print("Updated Query" , updatedQuery)
-
-    results = query_faiss(updatedQuery,openai_api_key)
+def query(userQuery, openai_api_key):
+    results = query_faiss(userQuery,openai_api_key)
     # print("\nResults:")
     # for text, score in results:
     #     print(f"Score: {score:.4f}")
     #     print(f"Text: {text}\n")
 
     resultString = ""
-    for i, (chunk_text, distance, sourceDoc) in enumerate(results): 
-        resultString+=(f'{i}th Retreived chunk:{chunk_text}... its cosine distance from query vector {distance} its source document {sourceDoc}\n')
+    for i, (chunk_text, distance) in enumerate(results): 
+        resultString+=(f'{i}th Retreived chunk:{chunk_text}... its cosine distance from query vector {distance}\n')
+    # print(resultString)
 
+    client = OpenAI(api_key=openai_api_key)
     m = [
-        {"role": "system", "content": f"""You are given:
-            - A user query about BITS Pilani regulations.
-            - The top-k retrieved text segments, each tagged with its source filename.
-
-            Your task:
-            - Synthesize only the relevant information from those segments.
-           
-
-            Formatting (exactly):
-            Answer: <your brief synthesis here>
-
-            Citation:
-            For each fact, append “SOURCE: <filename>” Each Source MUST BE on a new line.
-         
-            In source have only the source and nothing more. in the answer there must be no mention of the source.
-            """},
+        {"role": "developer", "content": f"You will be given a query and top k retreived segments alongside their file location, you must be a helpful assistant and provide the most relevant useful information to the user. The query will be related to regulation / document retrieval from a set of guidelines designed for BITS Pilani. Do not produce extra information. Try to be brief in responses. Your core job is to sythesize the raw data retreived into a coherent and useful response."},
         {"role": "user", "content": f"The query is {userQuery} and the retreived documents are {resultString}."}
     ]
+
 
     completion = client.chat.completions.create(
         model="gpt-4o-mini-2024-07-18",
         messages=m
     )
     print("Model Response: ")
-    response = (completion.choices[0].message.content)
-    userMessages.append({"role": "assistant", "content": response})
-    return userMessages
+    # print(completion.choices[0].message.content)
+    return completion.choices[0].message.content
 # api_key = ""
-# query([{"role": "user", "content" : "For submitting an industry research proposal, what are the different budget heads?"}], api_key)
+# query("For submitting an industry research proposal, what are the different budget heads?", api_key)
 
 
 
@@ -173,4 +120,3 @@ def query(userMessages, openai_api_key):
 #         source_doc = segment["source"]
 #         if source_doc in set(boosts.keys()):
 #             segment["distance"] *= boosts[source_doc]
-
