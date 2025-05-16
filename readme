@@ -1,25 +1,112 @@
-Experiment 1: Boolean Retrieval
+# RAG Chatbot
 
-cd exp1  
-python preprocessing.py 
+A Retrieval-Augmented Generation (RAG) based chatbot that combines the power of large language models with a knowledge retrieval system to provide accurate, context-aware responses based on your PDF documents. This project was designed for BITS Pilani's Phd Guidelines and Regulations.
 
-Inputs:
-bool_docs.json, bool_queries.txt (e.g., ../Assignment-data/bool_docs.json)
-Output paths: output.json, results.txt
---------------------
-Experiment 2:
-Ensure the files dictionary2.txt, bool_docs.json, and spell_queries.json are in the same directory as the model scripts.
+## Project Structure
 
-Navigate to this directory in the command prompt
+```
+IR2/
+├── IR_Project/       # Main project directory
+│   ├── pdfs/         # Place your PDF documents here
+│   ├── main.py       # Creates embeddings and vector database index
+│   ├── query.py      # Test embeddings with specific queries
+│   ├── endpoint.py   # Backend server for the chatbot
+│   └── ui/           # Frontend UI components
+│   └── evaluation.py # Evaluation metrics for the RAG system
+```
 
-cd exp2
-The filename can be HybridModel.py, Ngram.py, Soundex.py, Levenshtein_Distance.py  reprhase this too
-run filename.py
--------------------
-Experiment 3: BSBI Method
 
-cd exp3  
-python mergeTwo.py  
-Input: bsbi_docs.json (e.g., ../Assignment-data/bsbi_docs.json)
 
-pip install -r requirements.txt  
+## Features
+
+- **Retrieval-Augmented Generation**: Combines the strengths of retrieval-based and generative approaches
+- **Context-Aware Responses**: Maintains conversation context for coherent, relevant interactions
+- **Customizable Knowledge Base**: Easily update or extend the knowledge base with domain-specific information
+- **Vector Search**: Efficient similarity-based search for retrieving relevant documents
+- **Language Model Integration**: Seamless integration with modern language models
+- **Query Rephrasing**: Uses surrounding context to rephrase user queries for better retrieval
+
+## Architecture
+
+The RAG Chatbot consists of the following components:
+
+1. **Document Processing Pipeline**: Ingests, processes, and indexes documents for the knowledge base
+2. **Vector Database**: Stores document embeddings for efficient similarity search
+3. **Retrieval System**: Identifies and retrieves relevant information based on user queries
+4. **Language Model Interface**: Communicates with the language model to generate responses
+5. **Chat Interface**: Provides a user-friendly interface for interacting with the chatbot
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.8+
+- Node.js and npm for the UI component
+- OpenAI API key
+- Required packages (see `requirements.txt`)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/ali-aga-ai/IR2
+   cd IR_Project
+   ```
+2. Replace the OpenAI API key:
+   Find all occurrences of "openai_api_key" in the codebase and replace them with your actual OpenAI API key.
+
+### Usage
+
+1. Add your PDF documents:
+   Place all your PDF documents in the `IR_Project/pdfs` folder.
+
+2. Create embeddings and build the vector database index:
+   ```bash
+   python main.py
+   ```
+   This will process your PDFs using custom chunking that properly handles tables and bullet points.
+
+3. Start the backend server on localhost:5000:
+   ```bash
+   python endpoint.py
+   ```
+
+4. Start the UI:
+   ```bash
+   cd ui
+   npm start
+   ```
+
+5. Access the web interface in your browser (typically at `http://localhost:3000`)
+
+## Knowledge Base Management
+
+### Custom Chunking
+
+This project implements custom document chunking to ensure proper handling of:
+- Complete tables (preserved as single chunks)
+- Bullet point lists (kept together as logical units)
+- Standard text with customizable chunk size and overlap
+
+This approach improves retrieval quality by maintaining the integrity of structured content.
+
+### Testing and Evaluation
+
+To test how embeddings work for a specific query:
+```bash
+# Edit the query in query.py and run
+python IR_Project/query.py
+```
+
+To evaluate your RAG system performance:
+```bash
+python evaluation.py
+```
+
+This runs evaluation metrics including:
+- BLEU score
+- ROUGE score
+- BERT-based semantic similarity
+- Other NLP evaluation metrics
+
+Compare your system's responses against ideal outputs to measure performance.

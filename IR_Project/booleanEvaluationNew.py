@@ -63,7 +63,7 @@ current_dir = os.path.dirname(__file__)
 inverted_index, chunk_id_table = load_index_and_chunk_table(current_dir)
 
 # --- OpenAI API Key ---
-api_key = "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"
+api_key = ""
 client = OpenAI(api_key=api_key)
 
 def to_boolean_query(query):
